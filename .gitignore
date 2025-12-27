@@ -11,7 +11,7 @@ transformed/
 .claude/*
 !.claude/program.yaml
 !.claude/skills/
-
+results/
 
 # Virtual environments
 .venv

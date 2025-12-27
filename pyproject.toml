@@ -12,6 +12,7 @@ dependencies = [
     "claude-agent-sdk>=0.1.16",
     "datasets>=4.4.1",
     "deepagents>=0.3.0",
+    "dspy>=3.0.4",
     "ipykernel>=7.1.0",
     "ipywidgets>=8.1.8",
     "langchain>=1.1.3",
