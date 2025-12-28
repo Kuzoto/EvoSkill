@@ -1,8 +1,11 @@
-from typing import TypeVar, Type, Generic, Any
+from typing import TypeVar, Type, Generic, Any, Callable, Union
 from pydantic import BaseModel
 from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
 
 T = TypeVar('T', bound=BaseModel)
+
+# Type alias for options that can be static or dynamically generated
+OptionsProvider = Union[ClaudeAgentOptions, Callable[[], ClaudeAgentOptions]]
 
 
 class AgentTrace(BaseModel, Generic[T]):
@@ -32,14 +35,26 @@ class AgentTrace(BaseModel, Generic[T]):
 
 
 class Agent(Generic[T]):
-    """Simple wrapper for running Claude agents."""
+    """Simple wrapper for running Claude agents.
 
-    def __init__(self, options: ClaudeAgentOptions, response_model: Type[T]):
-        self.options = options
+    Args:
+        options: Either a ClaudeAgentOptions instance (static) or a callable
+                 that returns ClaudeAgentOptions (dynamic, called on each run).
+        response_model: Pydantic model for structured output validation.
+    """
+
+    def __init__(self, options: OptionsProvider, response_model: Type[T]):
+        self._options = options
         self.response_model = response_model
 
+    def _get_options(self) -> ClaudeAgentOptions:
+        """Get options, calling the provider if it's a callable."""
+        if callable(self._options):
+            return self._options()
+        return self._options
+
     async def run(self, query: str) -> AgentTrace[T]:
-        async with ClaudeSDKClient(self.options) as client:
+        async with ClaudeSDKClient(self._get_options()) as client:
             await client.query(query)
             messages = [msg async for msg in client.receive_response()]
 

@@ -1,4 +1,3 @@
-from .base_agent import base_agent_options
-from .prompt import BASE_AGENT_SYSTEM_PROMPT
+from .base_agent import base_agent_options, get_base_agent_options, PROMPT_FILE
 
-__all__ = ["base_agent_options", "BASE_AGENT_SYSTEM_PROMPT"]
+__all__ = ["base_agent_options", "get_base_agent_options", "PROMPT_FILE"]
