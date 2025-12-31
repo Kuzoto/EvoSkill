@@ -91,7 +91,11 @@ async def evaluate_full(
             error = None
             trace = None
             try:
-                trace = await agent.run(question)
+                async with asyncio.timeout(1020):  # 17-minute hard limit per eval
+                    trace = await agent.run(question)
+            except asyncio.TimeoutError:
+                error = "TimeoutError: Eval timed out after 17 minutes"
+                print(f"[TIMEOUT] Index {index}: {question[:50]}...")
             except Exception as e:
                 error = f"{type(e).__name__}: {str(e)}"
                 print(f"[ERROR] Index {index}: {question[:50]}... -> {error}")

@@ -173,7 +173,7 @@ class SelfImprovingLoop:
                 _log("", f"  \u2713 Correct")
                 continue
 
-            _log("", f"  \u2717 Incorrect (got: \"{agent_answer[:40]}...\", expected: \"{answer[:40]}...\")")
+            _log("", f"  \u2717 Incorrect (got: \"{agent_answer[:250]}...\", expected: \"{answer[:250]}...\")")
 
             # Run proposer to suggest improvement
             child_name = await self._mutate(parent, trace, answer, iteration_count)

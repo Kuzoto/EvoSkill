@@ -44,18 +44,22 @@ async def evaluate_agent_parallel(
     async def run_one(question: str, ground_truth: str) -> EvalResult[T]:
         async with semaphore:
             try:
-                # Check cache first
-                trace = None
-                if cache is not None:
-                    trace = cache.get(question, agent.response_model)
-
-                # Cache miss - run agent
-                if trace is None:
-                    trace = await agent.run(question)
-                    # Store in cache
+                async with asyncio.timeout(1020):  # 17-minute hard limit per eval
+                    # Check cache first
+                    trace = None
                     if cache is not None:
-                        cache.set(question, trace)
+                        trace = cache.get(question, agent.response_model)
 
+                    # Cache miss - run agent
+                    if trace is None:
+                        trace = await agent.run(question)
+                        # Store in cache
+                        if cache is not None:
+                            cache.set(question, trace)
+
+            except asyncio.TimeoutError:
+                print(f"Eval timed out (17min) for: {question[:50]}...")
+                trace = None
             except Exception as e:
                 print(f"Failed on question: {question[:50]}... Error: {e}")
                 trace = None
