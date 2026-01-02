@@ -38,6 +38,8 @@ from src.schemas import (
     ProposerResponse,
     ToolGeneratorResponse,
     PromptGeneratorResponse,
+    SkillProposerResponse,
+    PromptProposerResponse,
 )
 
 from .config import LoopConfig
@@ -45,6 +47,8 @@ from .helpers import (
     build_proposer_query,
     build_skill_query,
     build_prompt_query,
+    build_skill_query_from_skill_proposer,
+    build_prompt_query_from_prompt_proposer,
     append_feedback,
     read_feedback_history,
     update_prompt_file,
@@ -58,10 +62,11 @@ TOLERANCE_LEVELS = [0.05, 0.01, 0.1, 0.0, 0.025]
 
 @dataclass
 class LoopAgents:
-    """Container for the 4 agents used in the loop."""
+    """Container for the agents used in the loop."""
 
     base: Agent[AgentResponse]
-    proposer: Agent[ProposerResponse]
+    skill_proposer: Agent[SkillProposerResponse]
+    prompt_proposer: Agent[PromptProposerResponse]
     skill_generator: Agent[ToolGeneratorResponse]
     prompt_generator: Agent[PromptGeneratorResponse]
 
@@ -292,44 +297,64 @@ class SelfImprovingLoop:
         Returns:
             Child program name if created, None otherwise.
         """
-        # Run proposer
-        _log("", f"  \u2192 Running proposer...")
+        # Run appropriate proposer based on evolution mode
+        evolution_mode = self.config.evolution_mode
+        _log("", f"  → Running {evolution_mode.replace('_only', '')} proposer...")
         feedback_history = read_feedback_history(self._feedback_path)
         proposer_query = build_proposer_query(trace, answer, feedback_history)
-        proposer_trace = await self.agents.proposer.run(proposer_query)
 
-        if proposer_trace.output is None:
-            _log("", f"  \u26a0 Proposer failed: {proposer_trace.parse_error}")
-            return None
+        if evolution_mode == "skill_only":
+            proposer_trace = await self.agents.skill_proposer.run(proposer_query)
 
-        prompt_or_skill = proposer_trace.output.optimize_prompt_or_skill
-        proposed = proposer_trace.output.proposed_skill_or_prompt
-        justification = proposer_trace.output.justification
+            if proposer_trace.output is None:
+                _log("", f"  ⚠ Skill proposer failed: {proposer_trace.parse_error}")
+                return None
 
-        _log("", f"  \u2192 Proposal: {prompt_or_skill} - {proposed[:50]}...")
+            proposed = proposer_trace.output.proposed_skill
+            justification = proposer_trace.output.justification
+            _log("", f"  → Proposal: skill - {proposed[:50]}...")
 
-        # Create child program branch
-        child_name = f"iter-{iteration}"
-        parent_config = self.manager.get_current()
-        original_prompt = parent_config.system_prompt
-        child_config = parent_config.mutate(child_name)
-        self.manager.create_program(child_name, child_config, parent=parent)
+            # Create child program branch
+            child_name = f"iter-{iteration}"
+            parent_config = self.manager.get_current()
+            child_config = parent_config.mutate(child_name)
+            self.manager.create_program(child_name, child_config, parent=parent)
 
-        # Generate skill or prompt
-        if prompt_or_skill == "prompt":
-            _log("", f"  \u2192 Generating optimized prompt...")
-            prompt_query = build_prompt_query(proposer_trace, original_prompt)
+            # Generate skill
+            _log("", f"  → Generating skill...")
+            skill_query = build_skill_query_from_skill_proposer(proposer_trace)
+            skill_trace = await self.agents.skill_generator.run(skill_query)
+            if skill_trace.output:
+                pass  # Skill is written to file by the generator
+
+        else:  # prompt_only
+            proposer_trace = await self.agents.prompt_proposer.run(proposer_query)
+
+            if proposer_trace.output is None:
+                _log("", f"  ⚠ Prompt proposer failed: {proposer_trace.parse_error}")
+                return None
+
+            proposed = proposer_trace.output.proposed_prompt_change
+            justification = proposer_trace.output.justification
+            _log("", f"  → Proposal: prompt - {proposed[:50]}...")
+
+            # Create child program branch
+            child_name = f"iter-{iteration}"
+            parent_config = self.manager.get_current()
+            original_prompt = parent_config.system_prompt
+            child_config = parent_config.mutate(child_name)
+            self.manager.create_program(child_name, child_config, parent=parent)
+
+            # Generate optimized prompt
+            _log("", f"  → Generating optimized prompt...")
+            prompt_query = build_prompt_query_from_prompt_proposer(
+                proposer_trace, original_prompt
+            )
             prompt_trace = await self.agents.prompt_generator.run(prompt_query)
             if prompt_trace.output:
                 update_prompt_file(
                     self._prompt_path, prompt_trace.output.optimized_prompt
                 )
-        else:
-            _log("", f"  \u2192 Generating skill...")
-            skill_query = build_skill_query(proposer_trace)
-            skill_trace = await self.agents.skill_generator.run(skill_query)
-            if skill_trace.output:
-                pass  # Skill is written to file by the generator
 
         # Commit changes
         self.manager.commit(f"{child_name}: {proposed[:50]}")

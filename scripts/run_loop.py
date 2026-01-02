@@ -9,7 +9,8 @@ from src.loop import SelfImprovingLoop, LoopConfig, LoopAgents
 from src.agent_profiles import (
     Agent,
     base_agent_options,
-    proposer_options,
+    skill_proposer_options,
+    prompt_proposer_options,
     skill_generator_options,
     prompt_generator_options,
 )
@@ -17,7 +18,8 @@ from src.agent_profiles.skill_generator import get_project_root
 from src.registry import ProgramManager
 from src.schemas import (
     AgentResponse,
-    ProposerResponse,
+    SkillProposerResponse,
+    PromptProposerResponse,
     ToolGeneratorResponse,
     PromptGeneratorResponse,
 )
@@ -34,7 +36,8 @@ async def main():
 
     agents = LoopAgents(
         base=Agent(base_agent_options, AgentResponse),
-        proposer=Agent(proposer_options, ProposerResponse),
+        skill_proposer=Agent(skill_proposer_options, SkillProposerResponse),
+        prompt_proposer=Agent(prompt_proposer_options, PromptProposerResponse),
         skill_generator=Agent(skill_generator_options, ToolGeneratorResponse),
         prompt_generator=Agent(prompt_generator_options, PromptGeneratorResponse),
     )

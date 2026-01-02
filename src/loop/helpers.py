@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.agent_profiles.base import AgentTrace
-    from src.schemas import ProposerResponse
+    from src.schemas import ProposerResponse, SkillProposerResponse, PromptProposerResponse
 
 
 def build_proposer_query(
@@ -117,3 +117,42 @@ def update_prompt_file(file_path: Path, new_prompt: str) -> None:
         new_prompt: The new prompt content.
     """
     file_path.write_text(new_prompt.strip())
+
+
+def build_skill_query_from_skill_proposer(
+    proposer_trace: "AgentTrace[SkillProposerResponse]",
+) -> str:
+    """Build the query for the skill generator from a skill proposer trace.
+
+    Args:
+        proposer_trace: The trace from the skill proposer agent.
+
+    Returns:
+        Formatted query string for the skill generator.
+    """
+    return f"""Proposed tool or skill (high level description): {proposer_trace.output.proposed_skill}
+
+Justification: {proposer_trace.output.justification}"""
+
+
+def build_prompt_query_from_prompt_proposer(
+    proposer_trace: "AgentTrace[PromptProposerResponse]",
+    original_prompt: str,
+) -> str:
+    """Build the query for the prompt generator from a prompt proposer trace.
+
+    Args:
+        proposer_trace: The trace from the prompt proposer agent.
+        original_prompt: The original system prompt to optimize.
+
+    Returns:
+        Formatted query string for the prompt generator.
+    """
+    return f"""## Original Prompt
+{original_prompt}
+
+## Proposed Change
+{proposer_trace.output.proposed_prompt_change}
+
+## Justification
+{proposer_trace.output.justification}"""
