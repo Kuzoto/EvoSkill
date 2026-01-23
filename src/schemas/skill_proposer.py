@@ -1,3 +1,4 @@
+from typing import Literal, Optional, List
 from pydantic import BaseModel
 
 
@@ -5,11 +6,20 @@ class SkillProposerResponse(BaseModel):
     """Response from the skill proposer agent.
 
     This proposer analyzes agent failures and proposes skill additions
-    to address capability gaps.
+    or modifications to existing skills to address capability gaps.
     """
 
+    action: Literal["create", "edit"] = "create"
+    """Whether to create a new skill or edit an existing one."""
+
+    target_skill: Optional[str] = None
+    """Name of existing skill to modify. Required if action="edit"."""
+
     proposed_skill: str
-    """High-level description of the skill needed to address the failure."""
+    """High-level description of the skill needed or modifications to make."""
 
     justification: str
-    """Explanation of why this skill addresses the identified gap."""
+    """Explanation of why this skill/modification addresses the identified gap."""
+
+    related_iterations: List[str] = []
+    """List of relevant past iterations referenced in the proposal (e.g., ["iter-4", "iter-9"])."""

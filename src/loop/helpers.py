@@ -23,6 +23,15 @@ def build_proposer_query(
     Returns:
         Formatted query string for the proposer.
     """
+    # Get existing skills for context
+    skills_dir = Path(".claude/skills")
+    existing_skills = []
+    if skills_dir.exists():
+        for skill_dir in skills_dir.iterdir():
+            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                existing_skills.append(skill_dir.name)
+    skills_list = "\n".join([f"- {s}" for s in existing_skills]) or "None"
+
     # Build failure summaries
     failure_sections = []
     for i, (trace, agent_answer, ground_truth) in enumerate(traces_with_answers, 1):
@@ -42,7 +51,10 @@ Ground Truth: {ground_truth}
 
     failures_text = "\n".join(failure_sections)
 
-    return f"""## Previous Attempts Feedback
+    return f"""## Existing Skills (check before proposing new ones)
+{skills_list}
+
+## Previous Attempts Feedback
 {feedback_history}
 
 ## Current Failures ({len(traces_with_answers)} samples)
@@ -52,7 +64,11 @@ Analyze the patterns across these failures to identify a GENERAL improvement, no
 {failures_text}
 
 ## Your Task
-Identify what COMMON pattern or capability gap caused these failures. Propose an improvement that would help across ALL these cases, not just one."""
+1. Check if any EXISTING skill should have handled these failures
+2. If yes → propose EDITING that skill (action="edit", target_skill="skill-name")
+3. If no → propose a NEW skill (action="create")
+4. Reference any related DISCARDED iterations and explain how your proposal differs
+5. Identify what COMMON pattern or capability gap caused these failures"""
 
 
 def build_skill_query(proposer_trace: "AgentTrace[ProposerResponse]") -> str:
@@ -99,6 +115,9 @@ def append_feedback(
     outcome: str | None = None,
     score: float | None = None,
     parent_score: float | None = None,
+    active_skills: list[str] | None = None,
+    failure_category: str | None = None,
+    root_cause: str | None = None,
 ) -> None:
     """Append feedback entry to history file with outcome tracking.
 
@@ -110,6 +129,9 @@ def append_feedback(
         outcome: "improved", "no_improvement", or "discarded".
         score: The score achieved after applying this proposal.
         parent_score: The parent's score before this proposal.
+        active_skills: List of skills that were active during evaluation.
+        failure_category: Category of failure (e.g., "methodology", "formatting").
+        root_cause: Brief description of root cause.
     """
     # Build outcome section if available
     outcome_section = ""
@@ -119,10 +141,19 @@ def append_feedback(
         score_str = f" (score: {score:.4f}{delta_str})" if score is not None else ""
         outcome_section = f"\n**Outcome**: {outcome.upper()}{score_str}"
 
+    # Build diagnostic section
+    diagnostic_section = ""
+    if active_skills:
+        diagnostic_section += f"\n**Active Skills**: {', '.join(active_skills)}"
+    if failure_category:
+        diagnostic_section += f"\n**Failure Category**: {failure_category}"
+    if root_cause:
+        diagnostic_section += f"\n**Root Cause**: {root_cause}"
+
     entry = f"""
 ## {iteration}
 **Proposal**: {proposal}
-**Justification**: {justification}{outcome_section}
+**Justification**: {justification}{outcome_section}{diagnostic_section}
 
 """
     with open(path, "a") as f:

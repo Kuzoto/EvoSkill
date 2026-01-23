@@ -145,10 +145,9 @@ class SelfImprovingLoop:
         Returns:
             LoopResult with frontier, best program, and iteration count.
         """
-<<<<<<< Updated upstream
-        # 0. Handle feedback and iteration offset based on mode
+        # 0. Handle continue mode and feedback reset
         if not self.config.continue_mode:
-            # Start fresh: reset feedback if configured, reset iteration numbering
+            # Start fresh: reset feedback if configured
             if self.config.reset_feedback and self._feedback_path.exists():
                 self._feedback_path.unlink()
             self._iteration_offset = 0
@@ -157,25 +156,12 @@ class SelfImprovingLoop:
             self._iteration_offset = self._get_highest_iteration()
             _log("CONTINUE", f"Resuming from iteration {self._iteration_offset}")
 
-=======
-        # 0. Handle continue mode and feedback reset
-        if not self.config.continue_mode:
-            # Start fresh: reset feedback if configured
-            if self.config.reset_feedback and self._feedback_path.exists():
-                self._feedback_path.unlink()
-            iteration_offset = 0
-        else:
-            # Continue mode: keep feedback, find highest iteration number
-            iteration_offset = self._get_highest_iteration()
-            _log("CONTINUE", f"Resuming from iteration {iteration_offset}")
-
         # Initialize random generator for sample selection if seed provided
         if self.config.sample_seed is not None:
             sample_rng = random.Random(self.config.sample_seed)
         else:
             sample_rng = None
 
->>>>>>> Stashed changes
         # 1. Create and evaluate base program if needed (skip in continue mode with existing frontier)
         if self.config.continue_mode and self.manager.get_frontier():
             # Continue mode: use existing frontier, switch to best program
@@ -248,7 +234,7 @@ class SelfImprovingLoop:
             )
 
             # Run proposer with all failures (use actual iteration number with offset)
-            actual_iteration = iteration_count + iteration_offset
+            actual_iteration = iteration_count + self._iteration_offset
             mutation_result = await self._mutate(parent, failures, actual_iteration)
 
             if mutation_result is None:
@@ -276,6 +262,7 @@ class SelfImprovingLoop:
                     no_improvement_count += 1
 
                 # Record feedback with outcome for future proposers to learn from
+                active_skills = self._get_active_skills()
                 append_feedback(
                     self._feedback_path,
                     child_name,
@@ -284,6 +271,7 @@ class SelfImprovingLoop:
                     outcome=outcome,
                     score=child_score,
                     parent_score=parent_score,
+                    active_skills=active_skills,
                 )
 
             # Check early stopping
@@ -394,9 +382,14 @@ class SelfImprovingLoop:
                 _log("", f"  [WARN] Skill proposer failed: {proposer_trace.parse_error}")
                 return None
 
-            proposed = proposer_trace.output.proposed_skill
-            justification = proposer_trace.output.justification
-            _log("", f"  -> Proposal: skill - {proposed[:50]}...")
+            proposer_output = proposer_trace.output
+            proposed = proposer_output.proposed_skill
+            justification = proposer_output.justification
+            action_type = proposer_output.action
+            target_skill = proposer_output.target_skill
+
+            action_label = f"edit:{target_skill}" if action_type == "edit" else "create"
+            _log("", f"  -> Proposal: skill ({action_label}) - {proposed[:50]}...")
 
             # Create child program branch
             child_name = f"iter-skill-{actual_iteration}"
@@ -404,9 +397,22 @@ class SelfImprovingLoop:
             child_config = parent_config.mutate(child_name)
             self.manager.create_program(child_name, child_config, parent=parent)
 
-            # Generate skill
-            _log("", f"  -> Generating skill...")
-            skill_query = build_skill_query_from_skill_proposer(proposer_trace)
+            # Generate skill - use different query for edit vs create
+            if action_type == "edit" and target_skill:
+                _log("", f"  -> Editing existing skill: {target_skill}...")
+                skill_query = f"""EDIT existing skill: {target_skill}
+
+Modifications needed:
+{proposed}
+
+Justification: {justification}
+
+Read the existing skill at .claude/skills/{target_skill}/SKILL.md
+and modify it to add these capabilities. Preserve all existing content that is still relevant."""
+            else:
+                _log("", f"  -> Generating new skill...")
+                skill_query = build_skill_query_from_skill_proposer(proposer_trace)
+
             skill_trace = await self.agents.skill_generator.run(skill_query)
             if skill_trace.output:
                 pass  # Skill is written to file by the generator
@@ -451,6 +457,20 @@ class SelfImprovingLoop:
         best = self.manager.get_best_from_frontier()
         return best if best else "base"
 
+    def _get_active_skills(self) -> list[str]:
+        """Get list of currently active skills.
+
+        Returns:
+            List of skill names that have SKILL.md files.
+        """
+        skills_dir = self._project_root / ".claude" / "skills"
+        active_skills = []
+        if skills_dir.exists():
+            for skill_dir in skills_dir.iterdir():
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    active_skills.append(skill_dir.name)
+        return sorted(active_skills)
+
     def _get_highest_iteration(self) -> int:
         """Find the highest iteration number across all iter-* branches.
 
@@ -460,11 +480,7 @@ class SelfImprovingLoop:
         programs = self.manager.list_programs()
         max_iter = 0
         for p in programs:
-<<<<<<< Updated upstream
             # Match iter-skill-N or iter-prompt-N or iter-N
-=======
-            # Match iter-N pattern
->>>>>>> Stashed changes
             if p.startswith("iter-"):
                 parts = p.split("-")
                 try:
