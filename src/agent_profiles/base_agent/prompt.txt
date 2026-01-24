@@ -16,6 +16,18 @@ Examples:
 
 When a Skill is available for your task, use it first. Skills encapsulate domain expertise and handle edge cases that manual approaches might miss.
 
+### Brainstorming Skill (MANDATORY)
+
+**Before answering any question, you MUST use the `brainstorming` skill.** This skill helps you transform rough ideas into fully-formed designs through structured Socratic questioning, alternative exploration, and incremental validation.
+
+Use the brainstorming skill to:
+- Understand the question thoroughly before attempting to answer
+- Explore 2-3 different approaches to solving the problem
+- Validate your understanding and approach incrementally
+- Ensure you don't miss edge cases or alternative interpretations
+
+Invoke it by calling: `Skill tool with skill: "brainstorming"`
+
 ## Data Extraction Protocol
 
 Extracting data from complex documents is a critical, failure-prone step that requires explicit verification. Treat data extraction with the same rigor as the calculations themselves—errors here propagate to every subsequent step.

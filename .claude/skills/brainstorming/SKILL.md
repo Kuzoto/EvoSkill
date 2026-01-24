@@ -1,74 +1,109 @@
 ---
 name: Brainstorming
-description: IMMEDIATELY USE THIS SKILL when creating or develop anything and before writing code or implementation plans - refines rough ideas into fully-formed designs through structured Socratic questioning, alternative exploration, and incremental validation
+description: IMMEDIATELY USE THIS SKILL when answering data analysis questions from treasury_bulletins_parsed - internal design thinking that identifies the question type, selects applicable skills, and converges on the best analytical approach before implementation
 ---
 
-# Brainstorming Ideas Into Designs
+# Internal Design Thinking for Treasury Data Analysis
 
 ## Overview
 
-Transform rough ideas into fully-formed designs through structured questioning and alternative exploration.
+Structured self-dialogue before answering treasury/fiscal data questions. Analyze the question, identify which skills apply, reason through the approach, then execute.
 
-**Core principle:** Ask questions to understand, explore alternatives, present design incrementally for validation.
-
-**Announce at start:** "I'm using the Nori Brainstorming skill to refine your idea into a design."
+**Core principle:** Think first, execute second. Map the question to the right skill chain before acting.
 
 ## The Process
 
-### Phase 1: Understanding
+### Phase 1: Question Classification
 
-- Check current project state in working directory
-- Ask ONE question at a time to refine the idea
-- Prefer multiple choice when possible
-- Gather: Purpose, constraints, success criteria
+Analyze the question to determine:
 
-### Phase 2: Exploration
+- **Data type**: Interest on debt, budget outlays, receipts, yields, international capital, savings bonds, securities ownership
+- **Time scope**: Single point, time series, year-over-year comparison
+- **Calculation type**: Raw extraction, inflation-adjusted, ratio, regression, risk metric (ES/VaR), forecast
+- **Output format**: Percentage, absolute value, [slope, intercept], ratio
 
-- Propose 2-3 different approaches
-- For each: Core architecture, trade-offs, complexity assessment
-- Ask your human partner which approach resonates
+### Phase 2: Skill Selection
 
-### Phase 3: Design Presentation
+Review available skills and determine which apply:
 
-- Present in 200-300 word sections
-- Cover: Architecture, components, data flow, error handling, testing
-- Ask after each section: "Does this look right so far?"
+| Question Pattern | Required Skills |
+|-----------------|-----------------|
+| Any Treasury/fiscal data lookup | `treasury-data-local-first-protocol` (ALWAYS FIRST) |
+| Inflation adjustment, regression, trend | `economic-timeseries-analysis` |
+| ES, VaR, forecasting, currency conversion | `quantitative-analysis-methodology` |
+| Final numeric answer | `answer-output-normalizer` (ALWAYS LAST) |
 
-### Phase 4: Worktree Setup (for implementation)
+**Skill chain reasoning:**
+- "This question asks for [X], which requires [skill A] because..."
+- "After getting raw data, I need [skill B] for [transformation]..."
+- "Final output needs [skill C] to ensure [format requirement]..."
 
-When design is approved and implementation will follow:
+### Phase 3: Approach Design
 
-- Announce: "I'm using the Using Git Worktrees skill to set up an isolated workspace."
-- Switch to {{skills_dir}}/using-git-worktrees
-- Follow that skill's process for directory selection, safety verification, and setup
-- Return here when worktree ready
+For the selected skills, map out the execution path:
 
-### Phase 5: Planning Handoff
+1. **Data retrieval**: Which treasury_bulletins_parsed files? What grep patterns?
+2. **Transformations**: Inflation adjustment? Return calculation? Currency conversion?
+3. **Analysis**: Regression? Risk metric? Ratio calculation?
+4. **Validation**: What checkpoints from quantitative-analysis-methodology apply?
+5. **Output**: What format does the question expect?
 
-Ask: "Ready to create the implementation plan?"
+State assumptions explicitly:
+- "Assuming fiscal year convention from Treasury Bulletins..."
+- "Using CPI base period of [X] because..."
+- "Interpreting 'rate' as percentage without symbol..."
 
-When your human partner confirms (any affirmative response):
+### Phase 4: Design Summary
 
-- Announce: "I'm using the Writing Plans skill to create the implementation plan."
-- Switch to {{skills_dir}}/writing-plans skill
-- Create detailed plan in the worktree
+Before execution, articulate the plan:
 
-## When to Revisit Earlier Phases
+```
+## Analysis Plan
 
-**You can and should go backward when:**
+**Question type:** [classification]
 
-- Partner reveals new constraint during Phase 2 or 3 → Return to Phase 1 to understand it
-- Validation shows fundamental gap in requirements → Return to Phase 1
-- Partner questions approach during Phase 3 → Return to Phase 2 to explore alternatives
-- Something doesn't make sense → Go back and clarify
+**Skills to apply:**
+1. treasury-data-local-first-protocol → [specific purpose]
+2. [additional skills] → [specific purpose]
+3. answer-output-normalizer → [output format]
 
-**Don't force forward linearly** when going backward would give better results.
+**Data sources:** treasury_bulletins_parsed/[files]
+
+**Key steps:**
+1. [step]
+2. [step]
+...
+
+**Assumptions:** [list any]
+
+**Proceeding with analysis.**
+```
+
+### Phase 5: Execute
+
+- Follow the skill chain in order
+- Apply validation checkpoints from quantitative-analysis-methodology
+- Format final output per answer-output-normalizer
+
+## Quick Reference: Skill Triggers
+
+| If question involves... | Trigger skill... |
+|------------------------|------------------|
+| Treasury, fiscal, budget, debt data | treasury-data-local-first-protocol |
+| CPI, inflation adjustment, real values | economic-timeseries-analysis |
+| Linear regression on time series | economic-timeseries-analysis |
+| ES, VaR, volatility | quantitative-analysis-methodology |
+| Bond price notation (32nds) | quantitative-analysis-methodology |
+| Exponential smoothing, forecasting | quantitative-analysis-methodology |
+| Currency conversion | quantitative-analysis-methodology |
+| Year-over-year ratios, growth rates | quantitative-analysis-methodology |
+| Any numeric answer | answer-output-normalizer |
 
 ## Remember
 
-- One question per message during Phase 1
-- Apply YAGNI ruthlessly
-- Explore 2-3 alternatives before settling
-- Present incrementally, validate as you go
-- Go backward when needed - flexibility > rigid progression
-- Announce skill usage at start
+- This is internal reasoning - no questions, no waiting
+- ALWAYS start with treasury-data-local-first-protocol for data retrieval
+- ALWAYS end with answer-output-normalizer for final output
+- State assumptions so errors are traceable
+- The goal is selecting the right skill chain, not documenting
+- Once the plan is clear, execute immediately
