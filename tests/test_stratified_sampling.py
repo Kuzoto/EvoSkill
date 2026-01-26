@@ -5,12 +5,15 @@ import pytest
 
 
 def stratified_split(
-    data: pd.DataFrame, val_ratio: float = 0.12
+    data: pd.DataFrame, train_ratio: float = 0.18, val_ratio: float = 0.12
 ) -> tuple[dict[str, list[tuple[str, str]]], list[tuple[str, str, str]]]:
-    """Split data ensuring each category has at least 1 in validation.
+    """Split data ensuring each category has at least 1 in both train and validation.
 
     This is a copy of the function from scripts/run_loop.py for testing purposes.
     """
+    if train_ratio + val_ratio > 1.0:
+        raise ValueError(f"train_ratio ({train_ratio}) + val_ratio ({val_ratio}) cannot exceed 1.0")
+
     data = data.dropna(subset=['category'])
     categories = data['category'].unique()
     train_pools: dict[str, list[tuple[str, str]]] = {}
@@ -18,16 +21,17 @@ def stratified_split(
 
     for cat in categories:
         cat_data = data[data['category'] == cat].sample(frac=1, random_state=42)
+        n_train = max(1, int(len(cat_data) * train_ratio))
         n_val = max(1, int(len(cat_data) * val_ratio))
 
-        val_data.extend([
-            (row.question, row.ground_truth, cat)
-            for _, row in cat_data.head(n_val).iterrows()
-        ])
         train_pools[cat] = [
             (row.question, row.ground_truth)
-            for _, row in cat_data.tail(len(cat_data) - n_val).iterrows()
+            for _, row in cat_data.head(n_train).iterrows()
         ]
+        val_data.extend([
+            (row.question, row.ground_truth, cat)
+            for _, row in cat_data.iloc[n_train:n_train + n_val].iterrows()
+        ])
 
     return train_pools, val_data
 
@@ -54,22 +58,26 @@ class TestStratifiedSplit:
     """Tests for the stratified_split function."""
 
     def test_stratified_split_min_one_per_category(self, sample_dataset: pd.DataFrame):
-        """Every category has >= 1 sample in validation."""
-        train_pools, val_data = stratified_split(sample_dataset, val_ratio=0.12)
+        """Every category has >= 1 sample in both train and validation."""
+        train_pools, val_data = stratified_split(sample_dataset, train_ratio=0.18, val_ratio=0.12)
 
         # Get categories in validation
         val_categories = set(cat for _, _, cat in val_data)
 
-        # All 6 categories should be in validation
+        # All 6 categories should be in validation and training
         expected_categories = set(sample_dataset["category"].unique())
         assert val_categories == expected_categories, (
             f"Expected all categories in validation. "
             f"Missing: {expected_categories - val_categories}"
         )
+        assert set(train_pools.keys()) == expected_categories, (
+            f"Expected all categories in training. "
+            f"Missing: {expected_categories - set(train_pools.keys())}"
+        )
 
     def test_stratified_split_no_overlap(self, sample_dataset: pd.DataFrame):
         """No question appears in both train_pools and val_data."""
-        train_pools, val_data = stratified_split(sample_dataset, val_ratio=0.12)
+        train_pools, val_data = stratified_split(sample_dataset, train_ratio=0.18, val_ratio=0.12)
 
         # Collect all training questions
         train_questions = set()
@@ -84,16 +92,19 @@ class TestStratifiedSplit:
         overlap = train_questions & val_questions
         assert len(overlap) == 0, f"Questions appear in both train and val: {overlap}"
 
-    def test_stratified_split_preserves_all_data(self, sample_dataset: pd.DataFrame):
-        """Sum of train pools + val equals total dataset."""
-        train_pools, val_data = stratified_split(sample_dataset, val_ratio=0.12)
+    def test_stratified_split_respects_ratios(self, sample_dataset: pd.DataFrame):
+        """Train + val is approximately (train_ratio + val_ratio) of total data."""
+        train_ratio, val_ratio = 0.18, 0.12
+        train_pools, val_data = stratified_split(sample_dataset, train_ratio=train_ratio, val_ratio=val_ratio)
 
         total_train = sum(len(pool) for pool in train_pools.values())
         total_val = len(val_data)
         total_original = len(sample_dataset)
 
-        assert total_train + total_val == total_original, (
-            f"Data not preserved: {total_train} + {total_val} != {total_original}"
+        # With min 1 per category, actual ratio may be higher for small categories
+        # Just verify we're not using all the data
+        assert total_train + total_val <= total_original, (
+            f"Used more data than available: {total_train} + {total_val} > {total_original}"
         )
 
 

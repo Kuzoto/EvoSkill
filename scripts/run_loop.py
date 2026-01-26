@@ -27,18 +27,22 @@ from src.schemas import (
 
 
 def stratified_split(
-    data: pd.DataFrame, val_ratio: float = 0.12
+    data: pd.DataFrame, train_ratio: float = 0.18, val_ratio: float = 0.12
 ) -> tuple[dict[str, list[tuple[str, str]]], list[tuple[str, str, str]]]:
-    """Split data ensuring each category has at least 1 in validation.
+    """Split data ensuring each category has at least 1 in both train and validation.
 
     Args:
         data: DataFrame with 'question', 'ground_truth', 'category' columns.
+        train_ratio: Fraction of each category to use for training.
         val_ratio: Fraction of each category to use for validation.
 
     Returns:
         train_pools: Dict mapping category -> list of (question, answer) tuples.
         val_data: List of (question, answer, category) tuples for validation.
     """
+    if train_ratio + val_ratio > 1.0:
+        raise ValueError(f"train_ratio ({train_ratio}) + val_ratio ({val_ratio}) cannot exceed 1.0")
+
     # Drop rows with missing categories
     data = data.dropna(subset=['category'])
     categories = data['category'].unique()
@@ -47,16 +51,18 @@ def stratified_split(
 
     for cat in categories:
         cat_data = data[data['category'] == cat].sample(frac=1, random_state=42)
+        n_train = max(1, int(len(cat_data) * train_ratio))
         n_val = max(1, int(len(cat_data) * val_ratio))
 
-        val_data.extend([
-            (row.question, row.ground_truth, cat)
-            for _, row in cat_data.head(n_val).iterrows()
-        ])
+        # Train comes first, then validation
         train_pools[cat] = [
             (row.question, row.ground_truth)
-            for _, row in cat_data.tail(len(cat_data) - n_val).iterrows()
+            for _, row in cat_data.head(n_train).iterrows()
         ]
+        val_data.extend([
+            (row.question, row.ground_truth, cat)
+            for _, row in cat_data.iloc[n_train:n_train + n_val].iterrows()
+        ])
 
     return train_pools, val_data
 
@@ -124,10 +130,16 @@ def parse_args() -> argparse.Namespace:
         help="Path to dataset CSV with category column (default: .dataset/new_runs_evolved/train_set.csv)",
     )
     parser.add_argument(
+        "--train-ratio",
+        type=float,
+        default=0.18,
+        help="Fraction of each category for training (default: 0.18, i.e. 15-20%%)",
+    )
+    parser.add_argument(
         "--val-ratio",
         type=float,
         default=0.12,
-        help="Fraction of each category for validation (default: 0.12)",
+        help="Fraction of each category for validation (default: 0.12, i.e. 10-15%%)",
     )
     parser.add_argument(
         "--val-count",
@@ -142,7 +154,7 @@ async def main(args: argparse.Namespace):
     data = pd.read_csv(args.dataset)
 
     # Stratified split by category
-    train_pools, val_data = stratified_split(data, val_ratio=args.val_ratio)
+    train_pools, val_data = stratified_split(data, train_ratio=args.train_ratio, val_ratio=args.val_ratio)
 
     # Print category distribution
     categories = list(train_pools.keys())
@@ -152,6 +164,7 @@ async def main(args: argparse.Namespace):
     print(f"Training pools: {', '.join(f'{cat}: {len(pool)}' for cat, pool in train_pools.items())}")
     print(f"Total training samples: {total_train}")
     print(f"Validation samples: {len(val_data)} ({args.val_ratio:.0%} per category, min 1 each)")
+    print(f"Split ratios: train={args.train_ratio:.0%}, val={args.val_ratio:.0%} (remaining {1-args.train_ratio-args.val_ratio:.0%} unused)")
 
     agents = LoopAgents(
         base=Agent(base_agent_options, AgentResponse),
