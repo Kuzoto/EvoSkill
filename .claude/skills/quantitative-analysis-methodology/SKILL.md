@@ -3,10 +3,11 @@ name: quantitative-analysis-methodology
 description: >
   Comprehensive methodology guidance for quantitative financial analysis. MUST be triggered
   BEFORE: (1) risk calculations (ES, VaR, volatility), (2) forecasting (exponential smoothing,
-  moving averages), (3) currency conversion, (4) federal budget classification. Enforces
+  moving averages), (3) currency conversion, (4) federal budget classification, (5) statistical
+  inference (Z-scores, hypothesis tests, standard deviation calculations). Enforces
   MANDATORY validation checkpoints with PASS/FAIL output before computation. Prevents
   systematic errors from wrong data transformations, date misalignment, notation parsing,
-  or classification mistakes.
+  classification mistakes, or sample vs population statistics confusion.
 ---
 
 # Quantitative Analysis Methodology Guide
@@ -75,6 +76,29 @@ You MUST extract distinct values for EACH time period. Using the same value for 
 - ❌ WRONG: Extract 1964 Treasury value ($209,344M), apply it to 1964, 1965, 1966
 - ✓ CORRECT: Extract 1964 value from 1964 bulletin, 1965 value from 1965 bulletin, 1966 value from 1966 bulletin
 
+### BLOCKED: Sample Statistics with Wrong Denominator
+
+**If you are computing standard deviation for sample data (not full population) and using n as the denominator, STOP.**
+
+The sample standard deviation REQUIRES dividing by (n-1), not n. This is called Bessel's correction.
+
+**Example from failure:**
+- Data points: [1.3, 1.4] (n=2)
+- Mean: 1.35
+- Sum of squared deviations: (1.3-1.35)² + (1.4-1.35)² = 0.0025 + 0.0025 = 0.005
+
+**WRONG (population formula with n):**
+- Variance = 0.005 / 2 = 0.0025
+- Std = √0.0025 = 0.05
+- Z-score = 2.65 / 0.05 = 53.0 ← WRONG
+
+**CORRECT (sample formula with n-1):**
+- Variance = 0.005 / 1 = 0.005
+- Std = √0.005 ≈ 0.0707
+- Z-score = 2.65 / 0.0707 ≈ 37.48 ← CORRECT
+
+**The smaller the sample, the bigger the impact:** With n=2, using n instead of n-1 underestimates std by factor of √2 ≈ 1.41, making your Z-score 41% too high.
+
 ---
 
 ## ⚠️ MOST COMMON ERRORS — CHECK BEFORE PROCEEDING
@@ -84,6 +108,8 @@ You MUST extract distinct values for EACH time period. Using the same value for 
 | 1 | Taking min(yield levels) as ES | ES requires RETURNS, not levels | Compute returns first, then ES on returns |
 | 2 | Using March 1 exchange rates for end-of-March prices | Dates must match exactly | Use end-of-March exchange rates |
 | 3 | Using single data point for all periods in time series | Ratios will be trivially 1.0 or wrong | Extract separate values for each year/period |
+| 4 | Use n as divisor for variance when working with sample data | Underestimates variance by factor of n/(n-1); effect is large for small n | Use n-1 (Bessel's correction) for sample statistics |
+| 5 | Compute std with n=2, variance = sum/2 | With only 2 data points, variance = sum/1, giving √2 times larger std | For n=2: variance = Σ(x-x̄)²/1, not /2 |
 
 **If your approach matches any error pattern above, STOP and reconsider.**
 
@@ -167,6 +193,63 @@ Check 3: Source Document Dates
   - Does each value come from a document dated to that period?: [YES/NO]
   - Status: [PASS if period-matched / FLAG if using single-period data for all]
 OVERALL: [PASS - proceed / BLOCKED - must find data for each period]
+```
+
+---
+
+## Part 9: Statistical Inference Methodology
+
+### Pre-Calculation Verification
+
+**TRIGGER: Question involves Z-score, statistical significance, "unusual", hypothesis testing, or standard deviation calculations**
+
+```
+═══════════════════════════════════════════════════════════
+STATISTICAL CALCULATION VERIFICATION - BEFORE Z-SCORE/HYPOTHESIS TESTS
+═══════════════════════════════════════════════════════════
+
+Check 1 - Sample vs Population:
+  Am I calculating statistics for a SAMPLE or the full POPULATION?: [SAMPLE/POPULATION]
+  Sample size (n): [N]
+  Status: [If n < 30, almost certainly use sample statistics with n-1]
+
+Check 2 - Standard Deviation Formula Selection:
+  Population std (σ): √(Σ(x-μ)² / n)       ← Use ONLY if you have the entire population
+  Sample std (s):     √(Σ(x-x̄)² / (n-1))   ← Use for samples (DEFAULT)
+
+  I am using: [sample/population] formula
+  Denominator in variance calculation: [n / n-1]
+  Status: [PASS if n-1 for sample / BLOCKED if using n for sample data]
+
+Check 3 - Small Sample Warning (n ≤ 5):
+  Sample size: [N]
+  If n ≤ 5: Standard deviation estimates are highly unstable
+  Consider: Document this limitation in output
+  Status: [PASS with documented limitation / FLAG if not acknowledged]
+
+STATISTICAL VERIFICATION RESULT: [PROCEED / BLOCKED]
+═══════════════════════════════════════════════════════════
+```
+
+### Validation Checkpoint for Z-Score / Hypothesis Testing
+
+```
+VALIDATION CHECKPOINT - Statistical Inference
+Check 1: Sample vs Population Determination
+  - Data source: [sample from larger population / complete population]
+  - Sample size (n): [N]
+  - Status: [PASS if determination is explicit / BLOCKED if assumed]
+Check 2: Standard Deviation Formula
+  - Using formula: [sample s with n-1 / population σ with n]
+  - Denominator value: [n-1 = X / n = X]
+  - Status: [PASS if sample data uses n-1 / BLOCKED if sample data uses n]
+Check 3: Calculation Verification (show work)
+  - Sum of squared deviations: [show calculation]
+  - Divided by: [n-1 or n]
+  - Variance: [result]
+  - Std: [√variance]
+  - Status: [PASS if arithmetic verified / BLOCKED if not shown]
+OVERALL: [PASS - proceed / BLOCKED - halt and resolve]
 ```
 
 ---
@@ -507,6 +590,24 @@ Starting a financial analysis task?
 │   │   └── NO → BLOCKED - find data for each required period
 │   └── OUTPUT CHECK: Does any ratio equal exactly 1.0?
 │       └── YES → Verify you didn't reuse same value for multiple periods
+│
+├── Computing Z-score, significance test, or standard deviation?
+│   │
+│   ├── FIRST: Determine if data is sample or population
+│   │   ├── Is this ALL possible data points? → Population (use n)
+│   │   └── Is this a SUBSET of observations? → Sample (use n-1)
+│   │
+│   ├── For SAMPLE standard deviation (the default case):
+│   │   └── Variance = Σ(x-x̄)² / (n-1)  ← NOT divided by n
+│   │   └── std = √variance
+│   │
+│   ├── For Z-score calculation:
+│   │   └── Z = (x - mean) / std
+│   │   └── Verify std calculation used correct formula before computing Z
+│   │
+│   └── OUTPUT CHECK: For small n, is your std suspiciously small?
+│       └── Example: If n=2 and values differ by 0.1, std should be ≈ 0.07, not 0.05
+│       └── If std seems too small, verify you used n-1, not n
 │
 └── Classification task?
     └── Check references/federal-accounting.md for definitions
