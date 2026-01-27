@@ -126,8 +126,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         type=str,
-        default=".dataset/new_runs_evolved/train_set.csv",
-        help="Path to dataset CSV with category column (default: .dataset/new_runs_evolved/train_set.csv)",
+        default=".dataset/new_runs_base/solved_dataset.csv",
+        help="Path to dataset CSV with category column (default: .dataset/new_runs_base/solved_dataset.csv)",
     )
     parser.add_argument(
         "--train-ratio",
