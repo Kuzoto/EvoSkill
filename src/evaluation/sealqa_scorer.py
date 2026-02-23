@@ -79,11 +79,11 @@ def score_sealqa(question: str, ground_truth: str, predicted: str) -> float:
 
     """
     lm = dspy.LM("openrouter/openai/gpt-5-mini")
-    dspy.configure(lm=lm)
     system_prompt = GRADER_TEMPLATE.format(question=question, target=ground_truth, predicted_answer=predicted)
 
     grader = dspy.ChainOfThought("question:str -> score:str")
 
-    response = grader(question=system_prompt)
+    with dspy.context(lm=lm):
+        response = grader(question=system_prompt)
     score = 1.0 if response.score == "A" else 0.0
     return score
