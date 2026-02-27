@@ -1,20 +1,34 @@
-from typing import TypeVar, Type, Generic, Any, Callable, Union, Optional
-from pydantic import BaseModel, ValidationError
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
 import asyncio
 import json
 import logging
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, Type, TypeVar, Union
+
+from pydantic import BaseModel, ValidationError
+
+from .sdk_config import is_claude_sdk
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
+
+# Import ClaudeAgentOptions at module level for type hints only
+if TYPE_CHECKING:
+    from claude_agent_sdk import ClaudeAgentOptions as ClaudeAgentOptionsType
+else:
+    ClaudeAgentOptionsType = Any
 
 # Type alias for options that can be static or dynamically generated
-OptionsProvider = Union[ClaudeAgentOptions, Callable[[], ClaudeAgentOptions]]
+# Supports both ClaudeAgentOptions and dict (for opencode)
+OptionsProvider = Union[
+    ClaudeAgentOptionsType,
+    dict[str, Any],
+    Callable[[], Union[ClaudeAgentOptionsType, dict[str, Any]]],
+]
 
 
 class AgentTrace(BaseModel, Generic[T]):
     """Metadata and output from an agent run."""
+
     # From first message (SystemMessage)
     uuid: str
     session_id: str
@@ -104,7 +118,7 @@ class Agent(Generic[T]):
         self._options = options
         self.response_model = response_model
 
-    def _get_options(self) -> ClaudeAgentOptions:
+    def _get_options(self) -> Union[ClaudeAgentOptionsType, dict[str, Any]]:
         """Get options, calling the provider if it's a callable."""
         if callable(self._options):
             return self._options()
@@ -112,9 +126,77 @@ class Agent(Generic[T]):
 
     async def _execute_query(self, query: str) -> list[Any]:
         """Execute a single query attempt."""
-        async with ClaudeSDKClient(self._get_options()) as client:
-            await client.query(query)
-            return [msg async for msg in client.receive_response()]
+        options = self._get_options()
+
+        if is_claude_sdk():
+            # Claude SDK path
+            from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+            # Convert dict to ClaudeAgentOptions if needed
+            if isinstance(options, dict):
+                claude_opts = ClaudeAgentOptions(
+                    system_prompt=options.get("system"),
+                    allowed_tools=list(options.get("tools", {}).keys())
+                    if options.get("tools")
+                    else [],
+                    output_format=options.get("format"),
+                    setting_sources=["user", "project"],
+                    permission_mode="acceptEdits",
+                )
+                if "model_id" in options and "claude" in options["model_id"].lower():
+                    claude_opts.model = options["model_id"]
+                options = claude_opts
+
+            async with ClaudeSDKClient(options) as client:
+                await client.query(query)
+                return [msg async for msg in client.receive_response()]
+        else:
+            # OpenCode SDK path
+            from opencode_ai import AsyncOpencode
+
+            if not isinstance(options, dict):
+                raise TypeError(
+                    f"OpenCode SDK requires dict options, got {type(options)}"
+                )
+
+            # Start opencode server if needed
+            import subprocess
+            import time
+
+            try:
+                # Quick check if server is running
+                client = AsyncOpencode(base_url="http://127.0.0.1:4096")
+                await client.session.create(extra_body={})
+            except Exception:
+                # Start server
+                subprocess.Popen(
+                    ["opencode", "serve", "--port", "4096", "--hostname", "127.0.0.1"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                time.sleep(2)
+                client = AsyncOpencode(base_url="http://127.0.0.1:4096")
+
+            session = await client.session.create(extra_body={})
+
+            extra_body = {}
+            if "format" in options:
+                extra_body["format"] = options["format"]
+
+            message = await client.session.chat(
+                id=session.id,
+                model_id=options.get("model_id", "zai-org/GLM-5"),
+                provider_id=options.get("provider_id", "togetherai"),
+                parts=[{"type": "text", "text": query}],
+                system=options.get("system"),
+                mode=options.get("mode", "build"),
+                tools=options.get("tools", {}),
+                extra_body=extra_body if extra_body else None,
+            )
+
+            # Return as single-item list for consistency with Claude SDK
+            return [message]
 
     async def _run_with_retry(self, query: str) -> list[Any]:
         """Execute query with timeout and exponential backoff retry."""
@@ -126,50 +208,122 @@ class Agent(Generic[T]):
                 async with asyncio.timeout(self.TIMEOUT_SECONDS):
                     return await self._execute_query(query)
             except asyncio.TimeoutError:
-                last_error = TimeoutError(f"Query timed out after {self.TIMEOUT_SECONDS}s")
-                logger.warning(f"Attempt {attempt + 1}/{self.MAX_RETRIES} timed out. Retrying in {backoff}s...")
+                last_error = TimeoutError(
+                    f"Query timed out after {self.TIMEOUT_SECONDS}s"
+                )
+                logger.warning(
+                    f"Attempt {attempt + 1}/{self.MAX_RETRIES} timed out. Retrying in {backoff}s..."
+                )
             except Exception as e:
                 last_error = e
-                logger.warning(f"Attempt {attempt + 1}/{self.MAX_RETRIES} failed: {e}. Retrying in {backoff}s...")
+                logger.warning(
+                    f"Attempt {attempt + 1}/{self.MAX_RETRIES} failed: {e}. Retrying in {backoff}s..."
+                )
 
             if attempt < self.MAX_RETRIES - 1:
                 await asyncio.sleep(backoff)
                 backoff *= 2  # Exponential backoff
 
-        raise last_error  # Re-raise after all retries exhausted
+        raise last_error if last_error else RuntimeError("All retries exhausted")
 
     async def run(self, query: str) -> AgentTrace[T]:
         messages = await self._run_with_retry(query)
 
-        first = messages[0]
-        last = messages[-1]
+        if is_claude_sdk():
+            # Claude SDK: messages list with SystemMessage, AssistantMessage, ResultMessage
+            first = messages[0]
+            last = messages[-1]
 
-        # Try to parse structured output, gracefully handle failures
-        output = None
-        parse_error = None
-        raw_structured_output = last.structured_output
+            # Try to parse structured output
+            output = None
+            parse_error = None
+            raw_structured_output = last.structured_output
 
-        if raw_structured_output is not None:
-            try:
-                output = self.response_model.model_validate(raw_structured_output)
-            except (ValidationError, json.JSONDecodeError, TypeError) as e:
-                parse_error = f"{type(e).__name__}: {str(e)}"
+            if raw_structured_output is not None:
+                try:
+                    output = self.response_model.model_validate(raw_structured_output)
+                except (ValidationError, json.JSONDecodeError, TypeError) as e:
+                    parse_error = f"{type(e).__name__}: {str(e)}"
+            else:
+                parse_error = (
+                    "No structured output returned (context limit likely exceeded)"
+                )
+
+            return AgentTrace(
+                uuid=first.data.get("uuid"),
+                session_id=last.session_id,
+                model=first.data.get("model"),
+                tools=first.data.get("tools", []),
+                duration_ms=last.duration_ms,
+                total_cost_usd=last.total_cost_usd,
+                num_turns=last.num_turns,
+                usage=last.usage,
+                result=last.result,
+                is_error=last.is_error or parse_error is not None,
+                output=output,
+                parse_error=parse_error,
+                raw_structured_output=raw_structured_output,
+                messages=messages,
+            )
         else:
-            parse_error = "No structured output returned (context limit likely exceeded)"
+            # OpenCode SDK: single AssistantMessage with extra fields
+            message = messages[0]
 
-        return AgentTrace(
-            uuid=first.data.get('uuid'),
-            session_id=last.session_id,
-            model=first.data.get('model'),
-            tools=first.data.get('tools', []),
-            duration_ms=last.duration_ms,
-            total_cost_usd=last.total_cost_usd,
-            num_turns=last.num_turns,
-            usage=last.usage,
-            result=last.result,
-            is_error=last.is_error or parse_error is not None,
-            output=output,
-            parse_error=parse_error,
-            raw_structured_output=raw_structured_output,
-            messages=messages,
-        )
+            # Extract structured output from info dict (extra field)
+            output = None
+            parse_error = None
+            raw_structured_output = None
+
+            if hasattr(message, "info") and message.info:
+                raw_structured_output = message.info.get("structured")
+
+            if raw_structured_output is not None:
+                try:
+                    output = self.response_model.model_validate(raw_structured_output)
+                except (ValidationError, json.JSONDecodeError, TypeError) as e:
+                    parse_error = f"{type(e).__name__}: {str(e)}"
+            else:
+                parse_error = (
+                    "No structured output returned (context limit likely exceeded)"
+                )
+
+            # Extract text from parts (extra field)
+            result_text = ""
+            if hasattr(message, "parts"):
+                for part in message.parts:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        result_text += part.get("text", "")
+
+            # Get metadata from info dict
+            info = message.info if hasattr(message, "info") else {}
+            usage = info.get("tokens", {}) if info else {}
+            cost = info.get("cost", 0.0) if info else 0.0
+
+            options = self._get_options()
+            model_name = (
+                options.get("model_id", "unknown")
+                if isinstance(options, dict)
+                else "unknown"
+            )
+            tools = (
+                list(options.get("tools", {}).keys())
+                if isinstance(options, dict) and options.get("tools")
+                else []
+            )
+
+            return AgentTrace(
+                uuid=message.session_id or "unknown",
+                session_id=message.session_id or "unknown",
+                model=model_name,
+                tools=tools,
+                duration_ms=0,
+                total_cost_usd=cost,
+                num_turns=1,
+                usage=usage,
+                result=result_text,
+                is_error=parse_error is not None,
+                output=output,
+                parse_error=parse_error,
+                raw_structured_output=raw_structured_output,
+                messages=messages,
+            )

@@ -7,6 +7,7 @@ from .prompt_generator import prompt_generator_options
 from .skill_proposer import skill_proposer_options
 from .prompt_proposer import prompt_proposer_options
 from .base import Agent, AgentTrace
+from .sdk_config import set_sdk, get_sdk, is_claude_sdk, is_opencode_sdk
 
 __all__ = [
     "proposer_options",
@@ -22,4 +23,8 @@ __all__ = [
     "prompt_proposer_options",
     "Agent",
     "AgentTrace",
+    "set_sdk",
+    "get_sdk",
+    "is_claude_sdk",
+    "is_opencode_sdk",
 ]
