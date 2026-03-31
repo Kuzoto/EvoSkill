@@ -196,10 +196,10 @@ class ProgramManager:
                 self._git_tag_delete(tag)
                 tags_deleted += 1
 
-        # Delete all program/* branches except program/base
+        # Delete all program/* branches
         branches_deleted = 0
         for branch in self._git_list_branches():
-            if branch.startswith(self.BRANCH_PREFIX) and branch != f"{self.BRANCH_PREFIX}base":
+            if branch.startswith(self.BRANCH_PREFIX):
                 self._git_branch_delete(branch)
                 branches_deleted += 1
 

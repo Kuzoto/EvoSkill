@@ -16,7 +16,7 @@ def reset_cmd(yes: bool):
     manager = ProgramManager(cwd=get_project_root())
 
     # Show what will be deleted
-    branches = [b for b in manager._git_list_branches() if b.startswith(manager.BRANCH_PREFIX) and b != f"{manager.BRANCH_PREFIX}base"]
+    branches = [b for b in manager._git_list_branches() if b.startswith(manager.BRANCH_PREFIX)]
     tags = [t for t in manager._git_list_tags() if t.startswith(manager.FRONTIER_PREFIX)]
 
     if not branches and not tags:
