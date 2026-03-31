@@ -159,7 +159,7 @@ class LoopDisplay:
             n_skills = data.get("n_skills", 0)
 
             if data["added"]:
-                is_best = data["score"] >= max(r["score"] for r in self.rows)
+                is_best = not self.rows or data["score"] >= max(r["score"] for r in self.rows)
                 status = "★ new best" if is_best else "kept"
 
                 action = (self._last_proposal or {}).get("action", "create")
