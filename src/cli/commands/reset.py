@@ -3,7 +3,6 @@
 import click
 from rich.console import Console
 
-from src.cli.config import load_config
 from src.agent_profiles.skill_generator import get_project_root
 from src.registry import ProgramManager
 
@@ -14,7 +13,6 @@ console = Console()
 @click.option("--yes", is_flag=True, default=False, help="Skip confirmation prompt.")
 def reset_cmd(yes: bool):
     """Delete all program branches and frontier tags for a clean slate."""
-    cfg = load_config()
     manager = ProgramManager(cwd=get_project_root())
 
     # Show what will be deleted
