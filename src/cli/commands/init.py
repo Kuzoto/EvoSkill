@@ -43,7 +43,7 @@ def _write_config(path: Path, answers: dict) -> None:
             'ground_truth_column': answers['gt_col'],
         },
         'scorer': {
-            'type': 'exact',
+            'type': 'multi_tolerance',
         },
     }
     if answers['category_col']:
