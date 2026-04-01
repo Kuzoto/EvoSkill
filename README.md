@@ -1,6 +1,6 @@
 <div align="center">
     <img src="./assets/sentient-logo-new-M.png" alt="alt text" width="60%"/>
-    <h1>EvoSkill: Automated Skill discovery For Multi-Agent Systems</h1>
+    <h1>EvoSkill: Automated Skill Discovery For Multi-Agent Systems</h1>
 </div>
 
 <p align="center">
@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://sentient.xyz/" target="_blank" style="margin: 2px;">
-    <img alt="Homepage" src="https://img.shields.io/badge/Sentient-Homepage-%23EAEAEA?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNDEuMzMzIiBoZWlnaHQ9IjM0MS4zMzMiIHZlcnNpb249IjEuMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiPjxwYXRoIGQ9Ik0xMzIuNSAyOC40Yy0xLjUgMi4yLTEuMiAzLjkgNC45IDI3LjIgMy41IDEzLjcgOC41IDMzIDExLjEgNDIuOSAyLjYgOS45IDUuMyAxOC42IDYgMTkuNCAzLjIgMy4zIDExLjctLjggMTMuMS02LjQuNS0xLjktMTcuMS03Mi0xOS43LTc4LjYtMS4yLTMtNy41LTYuOS0xMS4zLTYuOS0xLjYgMC0zLjEuOS00LjEgMi40ek0xMTAgMzBjLTEuMSAxLjEtMiAzLjEtMiA0LjVzLjkgMy40IDIgNC41IDMuMSAyIDQuNSAyIDMuNC0uOSA0LjUtMiAyLTMuMSAyLTQuNS0uOS0zLjQtMi00LjUtMy4xLTItNC41LTItMy40LjktNC41IDJ6TTgxLjUgNDYuMWMtMi4yIDEuMi00LjYgMi44LTUuMiAzLjctMS44IDIuMy0xLjYgNS42LjUgNy40IDEuMyAxLjIgMzIuMSAxMC4yIDQ1LjQgMTMuMyAzIC44IDYuOC0yLjIgNi44LTUuMyAwLTMuNi0yLjItOS4yLTMuOS0xMC4xQzEyMy41IDU0LjIgODcuMiA0NCA4NiA0NGMtLjMuMS0yLjMgMS00LjUgMi4xek0xNjUgNDZjLTEuMSAxLjEtMiAyLjUtMiAzLjIgMCAyLjggMTEuMyA0NC41IDEyLjYgNDYuNS45IDEuNSAyLjQgMi4zIDQuMiAyLjMgMy44IDAgOS4yLTUuNiA5LjItOS40IDAtMS41LTIuMS0xMC45LTQuNy0yMC44bC00LjctMTguMS00LjUtMi44Yy01LjMtMy40LTcuNC0zLjYtMTAuMS0uOXpNNDguNyA2NS4xYy03LjcgNC4xLTYuOSAxMC43IDEuNSAxMyAyLjQuNiAyMS40IDUuOCA0Mi4yIDExLjYgMjIuOCA2LjIgMzguOSAxMC4yIDQwLjMgOS44IDMuNS0uOCA0LjYtMy44IDMuMi04LjgtMS41LTUuNy0yLjMtNi41LTguMy04LjJDOTQuMiA3My4xIDU2LjYgNjMgNTQuOCA2M2MtMS4zLjEtNCAxLTYuMSAyLjF6TTE5OC4yIDY0LjdjLTMuMSAyLjgtMy41IDUuNi0xLjEgOC42IDQgNS4xIDEwLjkgMi41IDEwLjktNC4xIDAtNS4zLTUuOC03LjktOS44LTQuNXpNMTgxLjggMTEzLjFjLTI3IDI2LjQtMzEuOCAzMS41LTMxLjggMzMuOSAwIDEuNi43IDMuNSAxLjUgNC40IDEuNyAxLjcgNy4xIDMgMTAuMiAyLjQgMi4xLS4zIDU2LjktNTMuNCA1OS01Ny4xIDEuNy0zLjEgMS42LTkuOC0uMy0xMi41LTMuNi01LjEtNC45LTQuMi0zOC42IDI4Ljl6TTM2LjYgODguMWMtNSA0LTIuNCAxMC45IDQuMiAxMC45IDMuMyAwIDYuMi0yLjkgNi4yLTYuMyAwLTIuMS00LjMtNi43LTYuMy02LjctLjggMC0yLjYuOS00LjEgMi4xek02My40IDk0LjVjLTEuNi43LTguOSA3LjMtMTYuMSAxNC43TDM0IDEyMi43djUuNmMwIDYuMyAxLjYgOC43IDUuOSA4LjcgMi4xIDAgNi0zLjQgMTkuOS0xNy4zIDkuNS05LjUgMTcuMi0xOCAxNy4yLTE4LjkgMC00LjctOC40LTguNi0xMy42LTYuM3pNNjIuOSAxMzAuNiAzNCAxNTkuNXY1LjZjMCA2LjIgMS44IDguOSA2IDguOSAzLjIgMCA2Ni02Mi40IDY2LTY1LjYgMC0zLjMtMy41LTUuNi05LjEtNi4ybC01LS41LTI5IDI4Ljl6TTE5Ni4zIDEzNS4yYy05IDktMTYuNiAxNy4zLTE2LjkgMTguNS0xLjMgNS4xIDIuNiA4LjMgMTAgOC4zIDIuOCAwIDUuMi0yIDE3LjktMTQuOCAxNC41LTE0LjcgMTQuNy0xNC45IDE0LjctMTkuMyAwLTUuOC0yLjItOC45LTYuMi04LjktMi42IDAtNS40IDIuMy0xOS41IDE2LjJ6TTk2IDEzNi44Yy0yLjkuOS04IDYuNi04IDkgMCAxLjMgMi45IDEzLjQgNi40IDI3IDMuNiAxMy42IDcuOSAzMC4zIDkuNyAzNy4yIDEuNyA2LjkgMy42IDEzLjMgNC4xIDE0LjIuNSAxIDIuNiAyLjcgNC44IDMuOCA2LjggMy41IDExIDIuMyAxMS0zLjIgMC0zLTIwLjYtODMuMS0yMi4xLTg1LjktLjktMS45LTMuNi0yLjgtNS45LTIuMXpNMTIwLjUgMTU4LjRjLTEuOSAyLjktMS4yIDguNSAxLjQgMTEuNiAxLjEgMS40IDEyLjEgNC45IDM5LjYgMTIuNSAyMC45IDUuOCAzOC44IDEwLjUgMzkuOCAxMC41czMuNi0xIDUuNy0yLjJjOC4xLTQuNyA3LjEtMTAuNi0yLjMtMTMuMi0yOC4yLTguMS03OC41LTIxLjYtODAuMy0yMS42LTEuNCAwLTMgMS0zLjkgMi40ek0yMTAuNyAxNTguOGMtMS44IDEuOS0yLjIgNS45LS45IDcuOCAxLjUgMi4zIDUgMy40IDcuNiAyLjQgNi40LTIuNCA1LjMtMTEuMi0xLjUtMTEuOC0yLjQtLjItNCAuMy01LjIgMS42ek02OS42IDE2MmMtMiAyLjItMy42IDQuMy0zLjYgNC44LjEgMi42IDEwLjEgMzguNiAxMS4xIDM5LjkgMi4yIDIuNiA5IDUuNSAxMS41IDQuOSA1LTEuMyA0LjktMy0xLjUtMjcuNy0zLjMtMTIuNy02LjUtMjMuNy03LjItMjQuNS0yLjItMi43LTYuNC0xLjctMTAuMyAyLjZ6TTQ5LjYgMTgxLjVjLTIuNCAyLjUtMi45IDUuNC0xLjIgOEM1MiAxOTUgNjAgMTkzIDYwIDE4Ni42YzAtMS45LS44LTQtMS44LTQuOS0yLjMtMi4xLTYuNi0yLjItOC42LS4yek0xMjguNSAxODdjLTIuMyAyLjUtMS4zIDEwLjMgMS42IDEyLjggMi4yIDEuOSAzNC44IDExLjIgMzkuNCAxMS4yIDMuNiAwIDEwLjEtNC4xIDExLTcgLjYtMS45LTEuNy03LTMuMS03LS4yIDAtMTAuMy0yLjctMjIuMy02cy0yMi41LTYtMjMuMy02Yy0uOCAwLTIuMy45LTMuMyAyek0xMzYuNyAyMTYuOGMtMy40IDMuOC0xLjUgOS41IDMuNSAxMC43IDMuOSAxIDguMy0zLjQgNy4zLTcuMy0xLjItNS4xLTcuNS03LjEtMTAuOC0zLjR6Ii8%2BPC9zdmc%2B&link=https%3A%2F%2Fhuggingface.co%2FSentientagi" style="display: inline-block; vertical-align: middle;"/>
+    <img alt="Homepage" src="https://img.shields.io/badge/Sentient-Homepage-%23EAEAEA?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNDEuMzMzIiBoZWlnaHQ9IjM0MS4zMzMiIHZlcnNpb249IjEuMCIgdmlld0JveD0iMCAwIDI1NiAyNTYiPjxwYXRoIGQ9Ik0xMzIuNSAyOC40Yy0xLjUgMi4yLTEuMiAzLjkgNC45IDI3LjIgMy41IDEzLjcgOC41IDMzIDExLjEgNDIuOSAyLjYgOS45IDUuMyAxOC42IDYgMTkuNCAzLjIgMy4zIDExLjctLjggMTMuMS02LjQuNS0xLjktMTcuMS03Mi0xOS43LTc4LjYtMS4yLTMtNy41LTYuOS0xMS4zLTYuOS0xLjYgMC0zLjEuOS00LjEgMi40ek0xMTAgMzBjLTEuMSAxLjEtMiAzLjEtMiA0LjVzLjkgMy40IDIgNC41IDMuMSAyIDQuNSAyIDMuNC0uOSA0LjUtMiAyLTMuMSAyLTQuNS0uOS0zLjQtMi00LjUtMy4xLTItNC41LTItMy40LjktNC41IDJ6TTgxLjUgNDYuMWMtMi4yIDEuMi00LjYgMi44LTUuMiAzLjctMS44IDIuMy0xLjYgNS42LjUgNy40IDEuMyAxLjIgMzIuMSAxMC4yIDQ1LjQgMTMuMyAzIC44IDYuOC0yLjIgNi44LTUuMyAwLTMuNi0yLjItOS4yLTMuOS0xMC4xQzEyMy41IDU0LjIgODcuMiA0NCA4NiA0NGMtLjMuMS0yLjMgMS00LjUgMi4xek0xNjUgNDZjLTEuMSAxLjEtMiAyLjUtMiAzLjIgMCAyLjggMTEuMyA0NC41IDEyLjYgNDYuNS45IDEuNSAyLjQgMi4zIDQuMiAyLjMgMy44IDAgOS4yLTUuNiA5LjItOS40IDAtMS41LTIuMS0xMC45LTQuNy0yMC44bC00LjctMTguMS00LjUtMi44Yy01LjMtMy40LTcuNC0zLjYtMTAuMS0uOXpNNDguNyA2NS4xYy03LjcgNC4xLTYuOSAxMC43IDEuNSAxMyAyLjQuNiAyMS40IDUuOCA0Mi4yIDExLjYgMjIuOCA2LjIgMzguOSAxMC4yIDQwLjMgOS44IDMuNS0uOCA0LjYtMy44IDMuMi04LjgtMS41LTUuNy0yLjMtNi41LTguMy04LjJDOTQuMiA3My4xIDU2LjYgNjMgNTQuOCA2M2MtMS4zLjEtNCAxLTYuMSAyLjF6TTE5OC4yIDY0LjdjLTMuMSAyLjgtMy41IDUuNi0xLjEgOC42IDQgNS4xIDEwLjkgMi41IDEwLjktNC4xIDAtNS4zLTUuOC03LjktOS44LTQuNXpNMTgxLjggMTEzLjFjLTI3IDI2LjQtMzEuOCAzMS41LTMxLjggMzMuOSAwIDEuNi43IDMuNSAxLjUgNC40IDEuNyAxLjcgNy4xIDMgMTAuMiAyLjQgMi4xLS4zIDU2LjktNTMuNCA1OS01Ny4xIDEuNy0zLjEgMS42LTkuOC0uMy0xMi41LTMuNi01LjEtNC45LTQuMi0zOC42IDI4Ljl6TTM2LjYgODguMWMtNSA0LTIuNCAxMC45IDQuMiAxMC45IDMuMyAwIDYuMi0yLjkgNi4yLTYuMyAwLTIuMS00LjMtNi43LTYuMy02LjctLjggMC0yLjYuOS00LjEgMi4xek02My40IDk0LjVjLTEuNi43LTguOSA3LjMtMTYuMSAxNC43TDM0IDEyMi43djUuNmMwIDYuMyAxLjYgOC43IDUuOSA4LjcgMi4xIDAgNi0zLjQgMTkuOS0xNy4zIDkuNS05LjUgMTcuMi0xOCAxNy4yLTE4LjkgMC00LjctOC40LTguNi0xMy42LTYuM3pNNjIuOSAxMzAuNiAzNCAxNTkuNXY1LjZjMCA2LjIgMS44IDguOSA2IDguOSAzLjIgMCA2Ni02Mi40IDY2LTY1LjYgMC0zLjMtMy41LTUuNi05LjEtNi4ybC01LS41LTI5IDI4Ljl6TTE5Ni4zIDEzNS4yYy05IDktMTYuNiAxNy4zLTE2LjkgMTguNS0xLjMgNS4xIDIuNiA4LjMgMTAgOC4zIDIuOCAwIDUuMi0yIDE3LjktMTQuOCAxNC41LTE0LjcgMTQuNy0xNC45IDE0LjctMTkuMyAwLTUuOC0yLjItOC45LTYuMi04LjktMi42IDAtNS40IDIuMy0xOS41IDE2LjJ6TTk2IDEzNi44Yy0yLjkuOS04IDYuNi04IDkgMCAxLjMgMi45IDEzLjQgNi40IDI3IDMuNiAxMy42IDcuOSAzMC4zIDkuNyAzNy4yIDEuNyA2LjkgMy42IDEzLjMgNC4xIDE0LjIuNSAxIDIuNiAyLjcgNC44IDMuOCA2LjggMy41IDExIDIuMyAxMS0zLjIgMC0zLTIwLjYtODMuMS0yMi4xLTg1LjktLjktMS45LTMuNi0yLjgtNS45LTIuMXpNMTIwLjUgMTU4LjRjLTEuOSAyLjktMS4yIDguNSAxLjQgMTEuNiAxLjEgMS40IDEyLjEgNC45IDM5LjYgMTIuNSAyMC45IDUuOCAzOC44IDEwLjUgMzkuOCAxMC41czMuNi0xIDUuNy0yLjJjOC4xLTQuNyA3LjEtMTAuNi0yLjMtMTMuMi0yOC4yLTguMS03OC41LTIxLjYtODAuMy0yMS42LTEuNCAwLTMgMS0zLjkgMi40ek0yMTAuNyAxNTguOGMtMS44IDEuOS0yLjIgNS45LS45IDcuOCAxLjUgMi4zIDUgMy40IDcuNiAyLjQgNi40LTIuNCA1LjMtMTEuMi0xLjUtMTEuOC0yLjQtLjItNCAuMy01LjIgMS42ek02OS42IDE2MmMtMiAyLjItMy42IDQuMy0zLjYgNC44LjEgMi42IDEwLjEgMzguNiAxMS4xIDM5LjkgMi4yIDIuNiA5IDUuNSAxMS41IDQuOSA1LTEuMyA0LjktMy0xLjUtMjcuN2MtMy4zLTEyLjctNi41LTIzLjctNy4yLTI0LjUtMi4yLTIuNy02LjQtMS43LTEwLjMgMi42ek00OS42IDE4MS41Yy0yLjQgMi41LTIuOSA1LjQtMS4yIDggNS42IDUuNSAxMy42IDMuNSAxMy42LTMgMC0xLjktLjgtNC0xLjgtNC45LTIuMy0yLjEtNi42LTIuMi04LjYtLjJ6TTEyOC41IDE4N2MtMi4zIDIuNS0xLjMgMTAuMyAxLjYgMTIuOCAyLjIgMS45IDM0LjggMTEuMiAzOS40IDExLjIgMy42IDAgMTAuMS00LjEgMTEtNyAuNi0xLjktMS43LTctMy4xLTctLjIgMC0xMC4zLTIuNy0yMi4zLTZzLTIyLjUtNi0yMy4zLTZjLS44IDAtMi4zLjktMy4zIDJ6TTEzNi43IDIxNi44Yy0zLjQgMy44LTEuNSA5LjUgMy41IDEwLjcgMy45IDEgOC4zLTMuNCA3LjMtNy4zLTEuMi01LjEtNy41LTcuMS0xMC44LTMuNHoiLz48L3N2Zz4%3D&link=https%3A%2F%2Fhuggingface.co%2FSentientagi" style="display: inline-block; vertical-align: middle;"/>
   </a>
   <a href="https://github.com/sentient-agi" target="_blank" style="margin: 2px;">
     <img alt="GitHub" src="https://img.shields.io/badge/Github-sentient_agi-181717?logo=github" style="display: inline-block; vertical-align: middle;"/>
@@ -33,36 +33,32 @@
   <a href="https://www.sentient.xyz/">Build Agents for $$$</a>
 </p>
 
-
-
 </div>
 
-## 📑 Table of Contents
+## Table of Contents
 
-- [🧠 What is EvoSkill?](#-what-is-evoskill)
-- [🏗️ How It Works](#️-how-it-works)
-- [📦 Installation & Setup](#-installation--setup)
-- [🐍 Python API](#-python-api)
-- [⚡ Quickstart: Running the Self-Improvement Loop](#-quickstart-running-the-self-improvement-loop)
-- [📊 Running Evaluations](#-running-evaluations)
-- [🔑 Key Concepts](#-key-concepts)
-- [🧩 Extending EvoSkill: Adding a New Task](#-extending-evoskill-adding-a-new-task)
-- [📚 Citation](#-citation)
-- [📄 License](#-license)
+- [What is EvoSkill?](#what-is-evoskill)
+- [How It Works](#how-it-works)
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [CLI Reference](#cli-reference)
+- [Configuration Reference](#configuration-reference)
+- [Extending EvoSkill: Adding a New Task](#extending-evoskill-adding-a-new-task)
+- [Python API](#python-api)
+- [Citation](#citation)
+- [License](#license)
 
 ---
 
-## 🧠 What is EvoSkill?
+## What is EvoSkill?
 
 EvoSkill is a self-improving agent framework that **automatically discovers high-performance skills** for AI agents. Rather than relying on manual prompt engineering, EvoSkill runs an evolutionary loop that tests an agent on benchmark questions, identifies failure patterns, proposes improvements (new skills or prompt mutations), evaluates the changes, and keeps the best-performing variants.
 
 The core insight is simple: treat agent configurations as programs that can be iterated on automatically. Each "program" is a versioned combination of a system prompt and a set of skills. EvoSkill maintains a **frontier** of the top-N performing programs, uses failures to drive targeted improvements, and tracks everything through git branches for full reproducibility.
 
-EvoSkill has been validated on multiple benchmarks including DABStep (data analysis), SEAL-QA (search-augmented QA), and OfficeQA, demonstrating that automated skill discovery can match or exceed hand-tuned agent configurations.
-
 ---
 
-## 🏗️ How It Works
+## How It Works
 
 <p align="center">
   <img src="./assets/evoskill.jpg" alt="EvoSkill Architecture" style="max-width: 75%; width: 75%;" />
@@ -80,14 +76,11 @@ This cycle repeats for a configurable number of iterations, automatically conver
 
 ---
 
-## 📦 Installation & Setup
+## Installation
 
 **Requirements:**
 - Python 3.12+
 - [`uv`](https://github.com/astral-sh/uv) (recommended) or `pip`
-- Docker (for LiveCodeBench evaluation with secure code execution sandbox)
-
-**Install dependencies:**
 
 ```bash
 # Using uv (recommended)
@@ -97,200 +90,202 @@ uv sync
 pip install -e .
 ```
 
-**Environment variables:**
-Either login to **Claude Code** or use your API key
+**API key:**
+
 ```bash
-# Required — used by the Claude agent SDK
 export ANTHROPIC_API_KEY=your-key-here
 ```
 
-**SDK and Model Selection:**
+---
 
-Use `--sdk` and `--model` to configure which SDK and model to use:
-```bash
-# Claude SDK (default)
-uv run python scripts/run_eval.py --sdk claude --model claude-sonnet-4-5-20250514
+## Quickstart
 
-# OpenCode SDK with different models
-uv run python scripts/run_eval.py --sdk opencode --model deepseek-ai/DeepSeek-V3
-uv run python scripts/run_eval.py --sdk opencode --model google/gemini-2.0-flash-exp
+### 1. Initialize a project
+
+Run `evoskill init` inside any git repository:
+
+```
+$ evoskill init
+
+  EvoSkill — Project Setup
+  Which harness? › claude
+  Evolution mode? › skill_only — agent learns new skills (recommended)
+  Dataset path? › ./data/questions.csv
+  Question column name? › question
+  Ground truth column name? › answer
+  Category column name? (leave blank if none) ›
 ```
 
-**Dataset preparation:**
+This creates `.evoskill/config.toml` and `.evoskill/task.md`.
 
-Place your benchmark datasets in the `.dataset/` directory:
-- DABStep: `.dataset/dabstep_data.csv`
-- SEAL-QA: `.dataset/seal-0.csv`
-- OfficeQA: see `scripts/run_eval.py` for expected path
+### 2. Describe your task
+
+Edit `.evoskill/task.md` to describe what the agent should do:
+
+```markdown
+# Task
+
+Answer questions about quarterly financial reports.
+Return only the numeric answer with units.
+
+## Examples
+- "What was revenue in Q3?" → "$4.2B"
 
 ---
 
-## 🐍 Python API
-
-EvoSkill provides a high-level Python API that reduces the boilerplate needed to run the self-improvement loop or standalone evaluations to just a few lines.
-
-### `EvoSkill` — Run the self-improvement loop
-
-```python
-from src.api import EvoSkill
-
-# Minimal — uses task defaults
-result = await EvoSkill(dataset=".dataset/seal-0.csv", task="sealqa").run()
-
-# Full configuration
-evo = EvoSkill(
-    task="sealqa",
-    model="sonnet",
-    mode="skill_only",
-    max_iterations=20,
-    frontier_size=3,
-    concurrency=4,
-    train_ratio=0.18,
-    val_ratio=0.12,
-    continue_mode=False,
-)
-result = await evo.run()
-
-# Synchronous usage (wraps asyncio.run)
-result = EvoSkill(task="base").run_sync()
-
-# Preview dataset splits without running
-print(evo.dataset_info)
+# Constraints
+- Always include units in the answer
+- Do not explain your reasoning, just return the answer
 ```
 
-### `EvalRunner` — Run standalone evaluation
+### 3. Run the loop
 
-```python
-from src.api import EvalRunner
-
-summary = await EvalRunner(
-    task="sealqa",
-    model="sonnet",
-    max_concurrent=8,
-).run()
-
-print(f"Accuracy: {summary.accuracy:.1%} ({summary.correct}/{summary.successful})")
+```bash
+evoskill run
 ```
 
-### Built-in tasks
+EvoSkill will run the evolutionary loop and print a live progress table:
 
-Three tasks are registered out of the box:
-
-| Task | Agent | Default Dataset | Scorer |
-|------|-------|-----------------|--------|
-| `"base"` | Base agent | `.dataset/new_runs_base/solved_dataset.csv` | Multi-tolerance (default) |
-| `"sealqa"` | SEAL-QA agent | `.dataset/seal-0.csv` | LLM-graded (GPT) |
-
-```python
-from src.api import list_tasks
-print(list_tasks())  # ['base', 'dabstep', 'sealqa']
+```
+  Iter  Accuracy  Δ          Skills  Frontier  Status
+  1     42.0%     —          0       [1]       baseline
+  2     51.3%     +9.3%      1       [1, 2]    ★ new best
+  3     49.7%     -1.6%      1       [1, 2]    discarded
+  ...
 ```
 
-### Registering a custom task
+### 4. Evaluate and inspect
 
-```python
-from src.api import TaskConfig, register_task
-
-register_task(TaskConfig(
-    name="my_task",
-    make_agent_options=make_my_agent_options,
-    scorer=my_scorer_fn,  # (question, predicted, ground_truth) -> float
-    column_renames={"label": "ground_truth", "topic": "category"},
-    default_dataset=".dataset/my_data.csv",
-))
-
-result = await EvoSkill(task="my_task").run()
+```bash
+evoskill eval          # score the best program on the validation set
+evoskill skills        # list all discovered skills
+evoskill diff          # see what changed vs baseline
+evoskill logs          # view past run history
 ```
 
 ---
 
-## ⚡ Quickstart: Running the Self-Improvement Loop
+## CLI Reference
 
-The CLI scripts remain available for users who prefer the command line.
+| Command | Description |
+|---------|-------------|
+| `evoskill init` | Initialize a new project (creates `.evoskill/`) |
+| `evoskill run` | Run the self-improvement loop |
+| `evoskill eval` | Evaluate the best program on the validation set |
+| `evoskill skills` | List all skills discovered so far |
+| `evoskill diff` | Diff baseline vs best, or between two iterations |
+| `evoskill logs` | Show recent run history |
+| `evoskill reset` | Delete all program branches and start fresh |
 
-Run the evolutionary skill discovery loop on a benchmark:
-
-**OfficeQA:**
+### `evoskill run`
 
 ```bash
-python scripts/run_loop.py --mode skill_only --max-iterations 20
+evoskill run [--continue] [--verbose] [--quiet]
 ```
 
-**SEAL-QA:**
+| Flag | Description |
+|------|-------------|
+| `--continue` | Resume from the existing frontier instead of starting fresh |
+| `--verbose` | Show per-sample pass/fail results |
+| `--quiet` | Show the progress table only, suppress proposer output |
+
+### `evoskill diff`
 
 ```bash
-python scripts/run_loop_sealqa.py --mode skill_only --max-iterations 20
+evoskill diff              # baseline → current best
+evoskill diff 3 7          # iteration 3 vs iteration 7
 ```
 
-**Key CLI flags:**
+### `evoskill logs`
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--mode` | Evolution mode: `skill_only` or `prompt_only` | `skill_only` |
-| `--max-iterations` | Number of improvement iterations | `20` |
-| `--frontier-size` | Number of top programs to keep | `3` |
-| `--concurrency` | Concurrent evaluations | `4` |
-| `--continue` | Resume from existing frontier | off |
-| `--no-cache` | Disable run caching | off |
-| `--model` | Base agent model (`opus`, `sonnet`, `haiku`) | `opus` |
+```bash
+evoskill logs              # last 5 runs (default)
+evoskill logs --last 10    # last 10 runs
+```
+
+### `evoskill reset`
+
+```bash
+evoskill reset             # prompts for confirmation
+evoskill reset --yes       # skip confirmation
+```
 
 ---
 
-## 📊 Running Evaluations
+## Configuration Reference
 
-Evaluate an agent configuration on a full benchmark dataset:
+`evoskill init` creates `.evoskill/config.toml`. All fields are optional — defaults are shown below.
 
-**OfficeQA:**
+```toml
+[harness]
+name = "claude"        # "claude" or "opencode"
+model = "sonnet"       # model alias passed to the SDK
+data_dirs = []         # extra directories the agent can read
 
-```bash
-python scripts/run_eval.py --model opus --max-concurrent 8
+[evolution]
+mode = "skill_only"          # "skill_only" or "prompt_only"
+iterations = 20
+frontier_size = 3
+concurrency = 4
+no_improvement_limit = 5
+
+[dataset]
+path = "data/questions.csv"  # relative to .evoskill/, or absolute
+question_column = "question"
+ground_truth_column = "ground_truth"
+category_column = ""         # optional, for stratified sampling
+train_ratio = 0.18
+val_ratio = 0.12
+
+[scorer]
+type = "multi_tolerance"     # see scorer types below
 ```
 
-**SEAL-QA:**
+### Scorer types
 
-```bash
-python scripts/run_eval_sealqa.py --model opus --max-concurrent 8
+| Type | Description |
+|------|-------------|
+| `multi_tolerance` | Flexible string matching: exact, numeric tolerance, list overlap (default) |
+| `exact` | Case-insensitive exact string match |
+| `llm` | LLM-as-judge grading with a custom rubric |
+| `script` | Shell script scorer — receives `{predicted}` and `{expected}` as variables |
+
+**LLM scorer options:**
+
+```toml
+[scorer]
+type = "llm"
+rubric = "Award 1.0 if the answer is numerically correct within 5%, 0.0 otherwise."
+model = "claude-sonnet-4-6"   # defaults to claude-sonnet-4-6
+provider = "anthropic"        # "anthropic", "openai", or "google"
 ```
 
-Common eval flags: `--output <path>`, `--max-concurrent <n>`, `--num-samples <n>`, `--no-resume`.
+**Script scorer options:**
+
+```toml
+[scorer]
+type = "script"
+command = "python score.py --predicted {predicted} --expected {expected}"
+```
 
 ---
 
-## 🔑 Key Concepts
+## Extending EvoSkill: Adding a New Task
 
-- **Program** — A versioned agent configuration (system prompt + skills), stored as a git branch.
-- **Frontier** — The top-N highest-scoring programs, tracked via git tags and branches.
-- **Evolution Mode** — `skill_only` discovers new reusable skills; `prompt_only` optimizes the system prompt directly.
-- **Skill** — A reusable capability file written to `.claude/skills/` that the agent can invoke during execution.
-- **Proposer** — Analyzes agent failures and suggests what skill or prompt change would help.
-- **Generator** — Takes a proposal and produces the actual skill file or prompt rewrite.
-
----
-
-## 🧩 Extending EvoSkill: Adding a New Task
-
-EvoSkill is designed to be extended to new benchmarks. There are two approaches: using the **Python API** (recommended) or creating **standalone scripts**.
-
-### Option A: Using `register_task` (recommended)
-
-#### 1. Create an Agent Profile
+### 1. Create an Agent Profile
 
 Add a new directory under `src/agent_profiles/` for your task:
 
 ```
 src/agent_profiles/my_task_agent/
 ├── __init__.py
-├── my_task_agent.py    # Options factory
+├── my_task_agent.py    # options factory
 └── prompt.txt          # (optional) task-specific system prompt
 ```
 
-Your agent module should expose a `make_*_agent_options` factory that returns `ClaudeAgentOptions`. See `src/agent_profiles/dabstep_agent/dabstep_agent.py` or `src/agent_profiles/sealqa_agent/sealqa_agent.py` for reference.
+Your module should expose a factory that returns `ClaudeAgentOptions` (or the equivalent for your harness). See `src/agent_profiles/dabstep_agent/` or `src/agent_profiles/sealqa_agent/` for reference.
 
-Then register the exports in `src/agent_profiles/__init__.py`.
-
-#### 2. Create a Scorer (optional)
-
-Add a scorer under `src/evaluation/` that compares the agent's output to ground truth:
+### 2. Create a Scorer (optional)
 
 ```python
 # src/evaluation/my_task_scorer.py
@@ -300,9 +295,9 @@ def score_my_task(question: str, predicted: str, ground_truth: str) -> float:
     return 1.0 if predicted.strip().lower() == ground_truth.strip().lower() else 0.0
 ```
 
-For more complex grading (e.g. partial credit or LLM-based judging), see `src/evaluation/sealqa_scorer.py`. If no scorer is provided, the default multi-tolerance scorer is used.
+For partial credit or LLM-based grading, see `src/evaluation/sealqa_scorer.py`. If no scorer is provided, `multi_tolerance` is used.
 
-#### 3. Register and run
+### 3. Register and run via the Python API
 
 ```python
 from src.api import TaskConfig, register_task, EvoSkill, EvalRunner
@@ -320,34 +315,59 @@ result = await EvoSkill(task="my_task").run()
 
 # Or run a standalone evaluation
 summary = await EvalRunner(task="my_task", model="sonnet").run()
+print(f"Accuracy: {summary.accuracy:.1%} ({summary.correct}/{summary.successful})")
 ```
-
-### Option B: Standalone scripts
-
-You can also create scripts directly under `scripts/` following the existing patterns.
-
-**Evaluation script** — loads your dataset and runs `evaluate_full()`:
-
-```python
-from src.agent_profiles import Agent, make_my_task_agent_options
-from src.evaluation.eval_full import evaluate_full
-from src.schemas import AgentResponse
-
-agent = Agent(make_my_task_agent_options(model="opus"), AgentResponse)
-results = await evaluate_full(agent=agent, items=items, output_path=output, ...)
-```
-
-See `scripts/run_eval_dabstep.py` for a complete example.
-
-**Loop script** — follow the pattern in `scripts/run_loop.py`. The key ingredients are:
-
-- A **dataset split** function (train set for failure analysis, validation set for scoring)
-- Your **agent options factory** and **scorer** wired into `SelfImprovingLoop`
-- A `LoopConfig` with your chosen mode (`skill_only` or `prompt_only`)
 
 ---
 
-## 📚 Citation
+## Python API
+
+For programmatic usage, EvoSkill exposes a high-level Python API.
+
+### `EvoSkill`
+
+```python
+from src.api import EvoSkill
+
+evo = EvoSkill(
+    task="sealqa",
+    model="sonnet",
+    mode="skill_only",
+    max_iterations=20,
+    frontier_size=3,
+    concurrency=4,
+    train_ratio=0.18,
+    val_ratio=0.12,
+    continue_mode=False,
+)
+result = await evo.run()
+
+# Synchronous usage
+result = EvoSkill(task="base").run_sync()
+```
+
+### `EvalRunner`
+
+```python
+from src.api import EvalRunner
+
+summary = await EvalRunner(
+    task="sealqa",
+    model="sonnet",
+    max_concurrent=8,
+).run()
+```
+
+### Built-in tasks
+
+```python
+from src.api import list_tasks
+print(list_tasks())  # ['base', 'dabstep', 'sealqa']
+```
+
+---
+
+## Citation
 
 If you use EvoSkill in your research, please cite:
 
@@ -372,7 +392,6 @@ If you use EvoSkill in your research, please cite:
 }
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
-
