@@ -319,56 +319,6 @@ If accuracy stops improving, try the following:
 
 ---
 
-## Extending EvoSkill: Adding a New Task
-
-### 1. Create an Agent Profile
-
-Add a new directory under `src/agent_profiles/` for your task:
-
-```
-src/agent_profiles/my_task_agent/
-├── __init__.py
-├── my_task_agent.py    # options factory
-└── prompt.txt          # (optional) task-specific system prompt
-```
-
-Your module should expose a factory that returns `ClaudeAgentOptions` (or the equivalent for your harness). See `src/agent_profiles/dabstep_agent/` or `src/agent_profiles/sealqa_agent/` for reference.
-
-### 2. Create a Scorer (optional)
-
-```python
-# src/evaluation/my_task_scorer.py
-
-def score_my_task(question: str, predicted: str, ground_truth: str) -> float:
-    """Return 1.0 if correct, 0.0 otherwise."""
-    return 1.0 if predicted.strip().lower() == ground_truth.strip().lower() else 0.0
-```
-
-For partial credit or LLM-based grading, see `src/evaluation/sealqa_scorer.py`. If no scorer is provided, `multi_tolerance` is used.
-
-### 3. Register and run via the Python API
-
-```python
-from src.api import TaskConfig, register_task, EvoSkill, EvalRunner
-
-register_task(TaskConfig(
-    name="my_task",
-    make_agent_options=make_my_task_agent_options,
-    scorer=score_my_task,
-    column_renames={"label": "ground_truth", "topic": "category"},
-    default_dataset=".dataset/my_data.csv",
-))
-
-# Run the self-improvement loop
-result = await EvoSkill(task="my_task").run()
-
-# Or run a standalone evaluation
-summary = await EvalRunner(task="my_task", model="sonnet").run()
-print(f"Accuracy: {summary.accuracy:.1%} ({summary.correct}/{summary.successful})")
-```
-
----
-
 ## Python API
 
 For programmatic usage, EvoSkill exposes a high-level Python API.
