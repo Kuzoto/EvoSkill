@@ -43,6 +43,8 @@
 - [Quickstart](#quickstart)
 - [CLI Reference](#cli-reference)
 - [Configuration Reference](#configuration-reference)
+- [Git Branches](#git-branches)
+- [When the Loop Gets Stuck](#when-the-loop-gets-stuck)
 - [Extending EvoSkill: Adding a New Task](#extending-evoskill-adding-a-new-task)
 - [Python API](#python-api)
 - [Citation](#citation)
@@ -163,6 +165,24 @@ evoskill diff          # see what changed vs baseline
 evoskill logs          # view past run history
 ```
 
+### 5. Use the best program
+
+After the loop finishes, the best program lives on a git branch:
+
+```bash
+git branch | grep program/     # list all program branches
+git checkout program/iter-skill-3   # switch to the best one
+```
+
+From there you can inspect what the loop discovered:
+
+```bash
+cat .claude/program.yaml       # system prompt, tools, score
+ls .claude/skills/             # all learned skills
+```
+
+Copy `.claude/program.yaml` and `.claude/skills/` into your deployment to use the evolved agent configuration.
+
 ---
 
 ## CLI Reference
@@ -185,7 +205,7 @@ evoskill run [--continue] [--verbose] [--quiet]
 
 | Flag | Description |
 |------|-------------|
-| `--continue` | Resume from the existing frontier instead of starting fresh |
+| `--continue` | Resume from the existing frontier instead of starting fresh. Preserves all `program/*` branches, `frontier/*` tags, feedback history, and the sampling checkpoint so the loop picks up exactly where it left off. |
 | `--verbose` | Show per-sample pass/fail results |
 | `--quiet` | Show the progress table only, suppress proposer output |
 
@@ -195,6 +215,8 @@ evoskill run [--continue] [--verbose] [--quiet]
 evoskill diff              # baseline → current best
 evoskill diff 3 7          # iteration 3 vs iteration 7
 ```
+
+The diff is scoped to the `.claude/` directory — it shows changes to skills and the system prompt, not your source code.
 
 ### `evoskill logs`
 
@@ -210,6 +232,8 @@ evoskill reset             # prompts for confirmation
 evoskill reset --yes       # skip confirmation
 ```
 
+Deletes all `program/*` branches, `frontier/*` tags, the loop checkpoint, and feedback history. Your source code, `config.toml`, `task.md`, and any skills in `.claude/skills/` are left untouched.
+
 ---
 
 ## Configuration Reference
@@ -219,7 +243,7 @@ evoskill reset --yes       # skip confirmation
 ```toml
 [harness]
 name = "claude"        # "claude" or "opencode"
-model = "sonnet"       # model alias passed to the SDK
+model = "sonnet"       # model alias or full model ID (e.g. "claude-sonnet-4-6")
 data_dirs = []         # extra directories the agent can read
 
 [evolution]
@@ -267,6 +291,34 @@ provider = "anthropic"        # "anthropic", "openai", or "google"
 type = "script"
 command = "python score.py --predicted {predicted} --expected {expected}"
 ```
+
+---
+
+## Git Branches
+
+EvoSkill uses your repo's git history to version every program it creates. During a run it automatically creates and switches between branches — you don't need to do anything. After a run your branch layout will look like:
+
+```
+main                      ← your code, untouched
+program/base              ← initial baseline agent
+program/iter-skill-1      ← after iteration 1
+program/iter-skill-2      ← after iteration 2
+...
+```
+
+Frontier members are marked with `frontier/*` tags. EvoSkill only ever writes to branches prefixed `program/`, so there is no risk of it touching your working branch.
+
+---
+
+## When the Loop Gets Stuck
+
+If accuracy stops improving, try the following:
+
+1. **Check the feedback log** — `.claude/feedback_history.md` records what the proposer tried each iteration and why it succeeded or failed.
+2. **Resume instead of restarting** — `evoskill run --continue` picks up from the last frontier rather than discarding progress.
+3. **Adjust `failure_samples`** in `config.toml` — increasing it gives the proposer more signal per iteration.
+4. **Switch evolution mode** — if `skill_only` is plateauing, try `prompt_only` (or vice versa).
+5. **Reset and start fresh** — `evoskill reset` clears all branches and lets you start over with a revised `task.md`.
 
 ---
 
