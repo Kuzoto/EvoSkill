@@ -229,7 +229,6 @@ evoskill logs --last 10    # last 10 runs
 
 ```bash
 evoskill reset             # prompts for confirmation
-evoskill reset --yes       # skip confirmation
 ```
 
 Deletes all `program/*` branches, `frontier/*` tags, the loop checkpoint, and feedback history. Your source code, `config.toml`, `task.md`, and any skills in `.claude/skills/` are left untouched.
