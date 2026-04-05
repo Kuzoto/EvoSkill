@@ -98,14 +98,14 @@ Install into <b>any coding agent</b> in seconds, and supercharge it with <b>AI-c
       <td><b>Evolution without a benchmark</b></td>
       <td>🛠️</td>
       <td>
-        An open research direction: evolving skills without reliance on any benchmark.
+        An open research direction where benchmarks are generated on the fly (ex. <a href="https://github.com/NousResearch/hermes-agent-self-evolution">Hermes-Agent self-evolution</a>).
       </td>
     </tr>
     <tr>
       <td><b>Continuous evolution</b></td>
       <td>🛠️</td>
       <td>
-        Integrating the ability to improve skills from regular usage, as demonstrated by projects like <a href="https://github.com/NousResearch/hermes-agent-self-evolution">Hermes-Agent</a>.
+        Integrating the ability to improve skills from regular usage.
       </td>
     </tr>
   </tbody>
