@@ -3,11 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.agent_profiles.options_utils import (
-    build_opencode_options,
-    resolve_data_dirs,
-    resolve_project_root,
-)
+from src.agent_profiles.options_utils import build_claudecode_options, build_opencode_options
 from src.agent_profiles.sdk_config import is_claude_sdk
 from src.schemas import AgentResponse
 
@@ -37,43 +33,23 @@ def _build_base_agent_options(
     data_dirs: list[str] | None = None,
     project_root: str | Path | None = None,
 ) -> Any:
-    root = resolve_project_root(project_root)
-    output_schema = AgentResponse.model_json_schema()
-
     if is_claude_sdk():
-        from claude_agent_sdk import ClaudeAgentOptions
-
-        system_prompt = {
-            "type": "preset",
-            "preset": "claude_code",
-            "append": prompt_text,
-        }
-        output_format = {
-            "type": "json_schema",
-            "schema": output_schema,
-        }
-
-        options = ClaudeAgentOptions(
-            system_prompt=system_prompt,
-            output_format=output_format,
-            allowed_tools=BASE_AGENT_TOOLS,
-            setting_sources=["user", "project"],  # Load Skills from filesystem
+        return build_claudecode_options(
+            system=prompt_text,
+            schema=AgentResponse.model_json_schema(),
+            tools=BASE_AGENT_TOOLS,
+            project_root=project_root,
+            model=model,
+            data_dirs=data_dirs,
+            setting_sources=["user", "project"],
             permission_mode="acceptEdits",
-            add_dirs=resolve_data_dirs(root, data_dirs),
-            cwd=str(root),
-            max_buffer_size=10 * 1024 * 1024,  # 10MB buffer (default is 1MB)
+            max_buffer_size=10 * 1024 * 1024,
         )
-
-        if model:
-            options.model = model
-
-        return options
-
     return build_opencode_options(
         system=prompt_text,
-        schema=output_schema,
+        schema=AgentResponse.model_json_schema(),
         tools=BASE_AGENT_TOOLS,
-        project_root=root,
+        project_root=project_root,
         model=model,
         data_dirs=data_dirs,
     )

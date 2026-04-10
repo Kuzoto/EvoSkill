@@ -28,3 +28,6 @@ DABstep-data/
 output.txt
 tests/
 scratch/
+
+docs/
+CLAUDE.md
