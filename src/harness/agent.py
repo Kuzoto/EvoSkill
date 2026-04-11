@@ -151,10 +151,10 @@ class Agent(Generic[T]):
         options = self._get_options()
 
         if is_claude_sdk():
-            from . import _claude_executor
+            from .claude import executor as _claude_executor
             return await _claude_executor.execute_query(options, query)
         else:
-            from . import _opencode_executor
+            from .opencode import executor as _opencode_executor
             return await _opencode_executor.execute_query(options, query)
 
     async def _run_with_retry(self, query: str) -> list[Any]:
@@ -204,10 +204,10 @@ class Agent(Generic[T]):
         messages = await self._run_with_retry(query)
 
         if is_claude_sdk():
-            from . import _claude_executor
+            from .claude import executor as _claude_executor
             fields = _claude_executor.parse_response(messages, self.response_model)
         else:
-            from . import _opencode_executor
+            from .opencode import executor as _opencode_executor
             fields = _opencode_executor.parse_response(messages, self.response_model, self._get_options,)
 
         return AgentTrace(**fields)

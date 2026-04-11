@@ -288,41 +288,41 @@ class TestOptionsUtils:
     """Test options_utils helpers that don't require the Claude SDK."""
 
     def test_resolve_project_root_explicit_path(self, tmp_path):
-        from src.harness.options_utils import resolve_project_root
+        from src.harness.utils import resolve_project_root
 
         result = resolve_project_root(tmp_path)
         assert result == tmp_path.resolve()
 
     def test_resolve_data_dirs_absolute_paths(self, tmp_path):
-        from src.harness.options_utils import resolve_data_dirs
+        from src.harness.utils import resolve_data_dirs
 
         abs_path = str(tmp_path)
         result = resolve_data_dirs(tmp_path, [abs_path])
         assert abs_path in result
 
     def test_split_opencode_model_with_slash(self):
-        from src.harness.options_utils import split_opencode_model
+        from src.harness.opencode.options import split_opencode_model
 
         provider, model = split_opencode_model("anthropic/claude-opus-4-5")
         assert provider == "anthropic"
         assert model == "claude-opus-4-5"
 
     def test_split_opencode_model_without_slash_uses_default_provider(self):
-        from src.harness.options_utils import split_opencode_model
+        from src.harness.opencode.options import split_opencode_model
 
         provider, model = split_opencode_model("claude-sonnet-4-6")
         assert provider == "anthropic"
         assert model == "claude-sonnet-4-6"
 
     def test_split_opencode_model_none_uses_default(self):
-        from src.harness.options_utils import split_opencode_model, DEFAULT_OPENCODE_MODEL
+        from src.harness.opencode.options import split_opencode_model, DEFAULT_OPENCODE_MODEL
 
         provider, model = split_opencode_model(None)
         full = f"{provider}/{model}"
         assert full == DEFAULT_OPENCODE_MODEL
 
     def test_to_opencode_tools_basic(self):
-        from src.harness.options_utils import to_opencode_tools
+        from src.harness.opencode.options import to_opencode_tools
 
         result = to_opencode_tools(["Read", "Bash", "Write"])
         assert result["read"] is True
@@ -330,7 +330,7 @@ class TestOptionsUtils:
         assert result["write"] is True
 
     def test_to_opencode_tools_skips_none_mappings(self):
-        from src.harness.options_utils import to_opencode_tools
+        from src.harness.opencode.options import to_opencode_tools
 
         # BashOutput maps to None → should be excluded
         result = to_opencode_tools(["BashOutput", "Read"])
@@ -339,29 +339,29 @@ class TestOptionsUtils:
         assert "read" in result
 
     def test_to_opencode_tools_unknown_tool_lowercased(self):
-        from src.harness.options_utils import to_opencode_tools
+        from src.harness.opencode.options import to_opencode_tools
 
         result = to_opencode_tools(["CustomTool"])
         assert "customtool" in result
 
     def test_normalize_permission_block_none(self):
-        from src.harness.options_utils import _normalize_permission_block
+        from src.harness.opencode.options import _normalize_permission_block
 
         assert _normalize_permission_block(None) == {}
 
     def test_normalize_permission_block_string(self):
-        from src.harness.options_utils import _normalize_permission_block
+        from src.harness.opencode.options import _normalize_permission_block
 
         assert _normalize_permission_block("allow") == {"*": "allow"}
 
     def test_normalize_permission_block_dict(self):
-        from src.harness.options_utils import _normalize_permission_block
+        from src.harness.opencode.options import _normalize_permission_block
 
         d = {"path": "allow"}
         assert _normalize_permission_block(d) == d
 
     def test_build_opencode_options_structure(self, tmp_path):
-        from src.harness.options_utils import build_opencode_options
+        from src.harness.opencode.options import build_opencode_options
 
         result = build_opencode_options(
             system="You are helpful.",
@@ -379,7 +379,7 @@ class TestOptionsUtils:
         assert result["format"] == {"type": "json_schema", "schema": {"type": "object"}}
 
     def test_build_opencode_options_with_data_dirs(self, tmp_path):
-        from src.harness.options_utils import build_opencode_options
+        from src.harness.opencode.options import build_opencode_options
 
         data_dir = tmp_path / "data"
         data_dir.mkdir()
