@@ -11,6 +11,8 @@ requires-python = ">=3.12"
 dependencies = [
     "opencode-ai>=0.0.26",
     "claude-agent-sdk>=0.1.16",
+    "openhands-sdk>=1.16.1",
+    "openhands-tools>=1.16.1",
     "click>=8.1.8",
     "dspy>=3.0.4",
     "ipykernel>=7.1.0",

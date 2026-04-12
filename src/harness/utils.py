@@ -91,4 +91,14 @@ def build_options(
             model=model,
             data_dirs=data_dirs,
         )
+    if sdk == "openhands":
+        from .openhands.options import build_openhands_options
+        return build_openhands_options(
+            system=system,
+            schema=schema,
+            tools=tools,
+            project_root=project_root,
+            model=model,
+            data_dirs=data_dirs,
+        )
     raise ValueError(f"Unknown SDK: {sdk!r}")

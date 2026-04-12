@@ -6,7 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.harness.sdk_config import get_sdk, is_claude_sdk, is_opencode_sdk, set_sdk
+from src.harness.sdk_config import (
+    get_sdk,
+    is_claude_sdk,
+    is_openhands_sdk,
+    is_opencode_sdk,
+    set_sdk,
+)
 from src.harness.agent import AgentTrace, Agent
 
 
@@ -34,11 +40,22 @@ class TestSdkConfig:
     def test_is_opencode_sdk_false_by_default(self):
         assert is_opencode_sdk() is False
 
+    def test_is_openhands_sdk_false_by_default(self):
+        assert is_openhands_sdk() is False
+
     def test_set_sdk_to_opencode(self):
         set_sdk("opencode")
         assert get_sdk() == "opencode"
         assert is_opencode_sdk() is True
         assert is_claude_sdk() is False
+        assert is_openhands_sdk() is False
+
+    def test_set_sdk_to_openhands(self):
+        set_sdk("openhands")
+        assert get_sdk() == "openhands"
+        assert is_openhands_sdk() is True
+        assert is_claude_sdk() is False
+        assert is_opencode_sdk() is False
 
     def test_set_sdk_back_to_claude(self):
         set_sdk("opencode")
@@ -395,3 +412,43 @@ class TestOptionsUtils:
         # Data dir paths should appear in system prompt
         assert str(data_dir) in result["system"]
         assert str(data_dir) in result["add_dirs"]
+
+    def test_build_openhands_options_structure(self, tmp_path):
+        from src.harness.openhands.options import build_openhands_options
+
+        result = build_openhands_options(
+            system="You are helpful.",
+            schema={"type": "object"},
+            tools=["Read", "Bash", "TodoWrite", "Skill"],
+            project_root=tmp_path,
+            model="anthropic/claude-sonnet-4-5-20250929",
+        )
+
+        assert result["system"] == "You are helpful."
+        assert result["provider_id"] == "anthropic"
+        assert result["model_id"] == "claude-sonnet-4-5-20250929"
+        assert result["model"] == "anthropic/claude-sonnet-4-5-20250929"
+        assert result["tools"] == ["Read", "Bash", "TodoWrite", "Skill"]
+        assert result["format"] == {"type": "json_schema", "schema": {"type": "object"}}
+        assert result["skills_dir"] == str(tmp_path / ".claude" / "skills")
+
+    def test_build_openhands_options_with_data_dirs(self, tmp_path):
+        from src.harness.openhands.options import build_openhands_options
+
+        data_dir = tmp_path.parent / "openhands-data"
+        data_dir.mkdir()
+
+        result = build_openhands_options(
+            system="prompt",
+            schema={},
+            tools=[],
+            project_root=tmp_path,
+            data_dirs=[str(data_dir)],
+        )
+
+        mounted_path = Path(result["add_dirs"][0])
+        assert mounted_path.is_symlink()
+        assert mounted_path.resolve() == data_dir.resolve()
+        assert mounted_path.parent == tmp_path / ".evoskill" / "runtime" / "data_mounts"
+        assert mounted_path.relative_to(tmp_path).as_posix() in result["system"]
+        assert str(data_dir) not in result["system"]
