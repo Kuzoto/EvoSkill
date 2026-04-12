@@ -328,7 +328,7 @@ async def _run_fallback_extraction(
         },
         temperature=0,
     )
-    extracted_text = _extract_text(response.choices[0].message.content)
+    extracted_text = _extract_text(response.message)
     return _parse_output(extracted_text, response_model)
 
 
