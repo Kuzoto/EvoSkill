@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
-
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from .models import ProgramConfig
 
@@ -35,6 +33,7 @@ def config_to_options(
         ClaudeAgentOptions ready for use with ClaudeSDKClient
     """
     sdk = config.metadata.get("sdk")
+
     if sdk == "opencode":
         system_prompt = config.system_prompt
         system_text = system_prompt.get("content") or system_prompt.get("append", "")
@@ -48,6 +47,7 @@ def config_to_options(
             "provider_id": config.metadata.get("provider_id", "anthropic"),
             "model_id": config.metadata.get("model_id", "claude-sonnet-4-6"),
         }
+
     if sdk == "openhands":
         system_prompt = config.system_prompt
         system_text = system_prompt.get("content") or system_prompt.get("append", "")
@@ -67,9 +67,7 @@ def config_to_options(
             "skills_dir": config.metadata.get("skills_dir") or f"{cwd}/.claude/skills",
         }
 
-    from claude_agent_sdk import ClaudeAgentOptions
-
-    if config.metadata.get("sdk") == "codex":
+    if sdk == "codex":
         system_prompt = config.system_prompt
         system_text = system_prompt.get("content") or system_prompt.get("append", "")
         return {
@@ -81,7 +79,7 @@ def config_to_options(
             "data_dirs": add_dirs or [],
         }
 
-    if config.metadata.get("sdk") == "goose":
+    if sdk == "goose":
         system_prompt = config.system_prompt
         system_text = system_prompt.get("content") or system_prompt.get("append", "")
         provider = config.metadata.get("provider", "anthropic")
@@ -96,6 +94,7 @@ def config_to_options(
             "data_dirs": add_dirs or [],
         }
 
+    from claude_agent_sdk import ClaudeAgentOptions
     return ClaudeAgentOptions(
         system_prompt=config.system_prompt,
         allowed_tools=config.allowed_tools,
