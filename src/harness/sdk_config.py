@@ -7,7 +7,7 @@ SDKType = Literal["claude", "opencode", "codex", "goose", "openhands"]
 # Global SDK selection (can be overridden via CLI arguments)
 _current_sdk: SDKType = "claude"
 
-_VALID_SDKS = ("claude", "opencode", "codex", "goose")
+_VALID_SDKS = ("claude", "opencode", "codex", "goose", "openhands")
 
 
 def set_sdk(sdk: SDKType) -> None:

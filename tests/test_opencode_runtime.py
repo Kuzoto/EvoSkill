@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 import src.agent_profiles.base as base_module
-from src.agent_profiles.base import Agent
-from src.agent_profiles.sdk_config import set_sdk
+from src.harness import Agent
+from src.harness.sdk_config import set_sdk
 from src.schemas import AgentResponse
 
 

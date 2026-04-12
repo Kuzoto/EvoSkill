@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from src.agent_profiles import Agent
-from src.agent_profiles.sdk_config import set_sdk
+from src.harness import Agent
+from src.harness.sdk_config import set_sdk
 from src.loop import LoopAgents
 from src.loop.config import LoopConfig
 from src.loop.runner import SelfImprovingLoop

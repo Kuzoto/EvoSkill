@@ -1,7 +1,7 @@
 """Debug script to test Codex executor end-to-end.
 
 Run from project root:
-    uv run python scripts/debug_codex.py
+    OPENAI_API_KEY=sk-... uv run python scripts/debug_codex.py
 
 Output saved to: debug_codex_output.log
 """
@@ -52,7 +52,7 @@ async def main():
         system="You are a helpful assistant. Answer briefly.",
         schema=AgentResponse.model_json_schema(),
         tools=["Read", "Bash"],
-        model="openrouter/anthropic/claude-sonnet-4-6",
+        model="o4-mini",
     )
 
     print("OPTIONS:")
@@ -99,7 +99,7 @@ async def main():
         system="You are an agent performance analyst. Propose a skill improvement.",
         schema=SkillProposerResponse.model_json_schema(),
         tools=["Read", "Bash"],
-        model="openrouter/anthropic/claude-sonnet-4-6",
+        model="o4-mini",
     )
 
     agent2 = Agent(options=options2, response_model=SkillProposerResponse)
@@ -139,8 +139,8 @@ async def main():
     print("=" * 60)
     print("SUMMARY")
     print("=" * 60)
-    test1_ok = 'trace1' in dir() and trace1.output is not None
-    test2_ok = 'trace2' in dir() and trace2.output is not None
+    test1_ok = 'trace1' in dir() and hasattr(trace1, 'output') and trace1.output is not None
+    test2_ok = 'trace2' in dir() and hasattr(trace2, 'output') and trace2.output is not None
     print(f"  Test 1 (AgentResponse):          {'PASS' if test1_ok else 'FAIL'}")
     print(f"  Test 2 (SkillProposerResponse):   {'PASS' if test2_ok else 'FAIL'}")
     print()
