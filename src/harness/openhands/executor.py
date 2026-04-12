@@ -14,19 +14,6 @@ from typing import Any, Callable, Type
 from pydantic import BaseModel, SecretStr, ValidationError
 
 
-_TOOL_NAME_MAP = {
-    "Read": "FileEditorTool",
-    "Write": "FileEditorTool",
-    "Edit": "FileEditorTool",
-    "Bash": "TerminalTool",
-    "Glob": "TerminalTool",
-    "Grep": "TerminalTool",
-    "WebFetch": "TerminalTool",
-    "WebSearch": "TerminalTool",
-    "BashOutput": "TerminalTool",
-    "TodoWrite": "TaskTrackerTool",
-}
-
 _DIRECT_PARSE_RESPONSE_MODELS = {
     "AgentResponse",
     "SkillProposerResponse",
@@ -55,10 +42,56 @@ def _import_openhands_skills() -> Any:
     return importlib.import_module("openhands.sdk.context.skills")
 
 
-def _build_tool_objects(raw_tools: list[str], tool_cls: Any) -> list[Any]:
+def _import_openhands_llm() -> Any:
+    return importlib.import_module("openhands.sdk.llm")
+
+
+def _import_openhands_tools() -> Any:
+    try:
+        return importlib.import_module("openhands.tools")
+    except ImportError as exc:
+        raise ImportError(
+            "OpenHands tools are not installed. Add 'openhands-tools' "
+            "to the environment to use the OpenHands harness."
+        ) from exc
+
+
+def _register_openhands_tools() -> dict[str, str]:
+    tools_module = _import_openhands_tools()
+    register_default_tools = getattr(tools_module, "register_default_tools", None)
+    if callable(register_default_tools):
+        register_default_tools(enable_browser=False)
+
+    file_editor_module = importlib.import_module("openhands.tools.file_editor")
+    terminal_module = importlib.import_module("openhands.tools.terminal")
+    task_tracker_module = importlib.import_module("openhands.tools.task_tracker")
+
+    file_editor_name = file_editor_module.FileEditorTool.name
+    terminal_name = terminal_module.TerminalTool.name
+    task_tracker_name = task_tracker_module.TaskTrackerTool.name
+
+    return {
+        "Read": file_editor_name,
+        "Write": file_editor_name,
+        "Edit": file_editor_name,
+        "Bash": terminal_name,
+        "Glob": terminal_name,
+        "Grep": terminal_name,
+        "WebFetch": terminal_name,
+        "WebSearch": terminal_name,
+        "BashOutput": terminal_name,
+        "TodoWrite": task_tracker_name,
+    }
+
+
+def _build_tool_objects(
+    raw_tools: list[str],
+    tool_cls: Any,
+    tool_name_map: dict[str, str],
+) -> list[Any]:
     tool_names: list[str] = []
     for raw_tool in raw_tools:
-        mapped = _TOOL_NAME_MAP.get(raw_tool)
+        mapped = tool_name_map.get(raw_tool)
         if mapped and mapped not in tool_names:
             tool_names.append(mapped)
     return [tool_cls(name=name) for name in tool_names]
@@ -175,6 +208,7 @@ def _build_workspace(sdk_module: Any, options: dict[str, Any]) -> Any:
 async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     """Execute a query via OpenHands and return execution context for parsing."""
     sdk_module = _import_openhands_sdk()
+    tool_name_map = _register_openhands_tools()
     llm_kwargs: dict[str, Any] = {
         "model": options.get("model"),
         "service_id": "agent",
@@ -185,7 +219,11 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
 
     llm = sdk_module.LLM(**llm_kwargs)
     agent_context = _build_agent_context(sdk_module, options)
-    tools = _build_tool_objects(list(options.get("tools", [])), sdk_module.Tool)
+    tools = _build_tool_objects(
+        list(options.get("tools", [])),
+        sdk_module.Tool,
+        tool_name_map,
+    )
 
     if hasattr(sdk_module, "get_default_agent"):
         agent = sdk_module.get_default_agent(
@@ -267,11 +305,18 @@ async def _run_fallback_extraction(
         f"Original user query:\n{query}\n\n"
         f"Assistant final answer:\n{result_text}\n"
     )
+    llm_module = _import_openhands_llm()
     response = await asyncio.to_thread(
         llm.completion,
         messages=[
-            {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
-            {"role": "user", "content": extraction_query},
+            llm_module.Message(
+                role="system",
+                content=[llm_module.TextContent(text=_EXTRACTION_SYSTEM_PROMPT)],
+            ),
+            llm_module.Message(
+                role="user",
+                content=[llm_module.TextContent(text=extraction_query)],
+            ),
         ],
         response_format={
             "type": "json_schema",

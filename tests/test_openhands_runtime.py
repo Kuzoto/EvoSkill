@@ -105,6 +105,17 @@ def _install_fake_openhands(
             )
         }
 
+    def fake_register_default_tools(*, enable_browser=False):
+        captured["register_default_tools"] = {"enable_browser": enable_browser}
+
+    class FakeTextContent:
+        def __init__(self, text: str):
+            self.text = text
+
+    class FakeMessage:
+        def __init__(self, *, role: str, content):
+            self.role = role
+            self.content = content
     sdk_module = SimpleNamespace(
         LLM=FakeLLM,
         AgentContext=FakeAgentContext,
@@ -118,6 +129,31 @@ def _install_fake_openhands(
         sys.modules,
         "openhands.sdk.context.skills",
         SimpleNamespace(load_skills_from_dir=fake_load_skills_from_dir),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "openhands.sdk.llm",
+        SimpleNamespace(Message=FakeMessage, TextContent=FakeTextContent),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "openhands.tools",
+        SimpleNamespace(register_default_tools=fake_register_default_tools),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "openhands.tools.file_editor",
+        SimpleNamespace(FileEditorTool=SimpleNamespace(name="file_editor")),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "openhands.tools.terminal",
+        SimpleNamespace(TerminalTool=SimpleNamespace(name="terminal")),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "openhands.tools.task_tracker",
+        SimpleNamespace(TaskTrackerTool=SimpleNamespace(name="task_tracker")),
     )
     return captured
 
@@ -164,6 +200,7 @@ def test_openhands_runtime_uses_direct_json_without_fallback(
     assert getattr(captured["llm"], "calls") == []
     assert captured["conversation_init"]["workspace"].working_dir == str(tmp_path)
     assert captured["skills_dir"] == str(tmp_path / ".claude" / "skills")
+    assert captured["register_default_tools"] == {"enable_browser": False}
 
 
 def test_openhands_runtime_falls_back_to_strict_extraction_when_final_text_is_not_json(
@@ -206,8 +243,10 @@ def test_openhands_runtime_falls_back_to_strict_extraction_when_final_text_is_no
     assert trace.output.reasoning == "basic arithmetic"
     llm_calls = getattr(captured["llm"], "calls")
     assert len(llm_calls) == 1
+    assert llm_calls[0]["messages"][0].role == "system"
+    assert llm_calls[0]["messages"][1].role == "user"
     assert llm_calls[0]["response_format"]["type"] == "json_schema"
     assert llm_calls[0]["response_format"]["json_schema"]["name"] == "AgentResponse"
     tool_names = [tool.name for tool in captured["agent_kwargs"]["tools"]]
-    assert tool_names == ["FileEditorTool", "TerminalTool", "TaskTrackerTool"]
+    assert tool_names == ["file_editor", "terminal", "task_tracker"]
     assert captured["conversation_init"]["workspace"].working_dir == str(tmp_path)
