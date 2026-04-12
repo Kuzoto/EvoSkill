@@ -395,3 +395,186 @@ class TestOptionsUtils:
         # Data dir paths should appear in system prompt
         assert str(data_dir) in result["system"]
         assert str(data_dir) in result["add_dirs"]
+
+
+# ===========================================================================
+# Claude executor — parse_response
+# ===========================================================================
+
+import types
+from src.harness.claude.executor import parse_response as claude_parse
+from src.harness.opencode.executor import parse_response as opencode_parse
+from src.schemas import AgentResponse, SkillProposerResponse
+
+
+def _make_claude_messages(structured_output=None, is_error=False):
+    first = types.SimpleNamespace(
+        data={"uuid": "test-uuid", "model": "sonnet", "tools": ["Read", "Bash"]}
+    )
+    last = types.SimpleNamespace(
+        session_id="sess-123",
+        duration_ms=500,
+        total_cost_usd=0.05,
+        num_turns=3,
+        usage={"input": 100, "output": 50},
+        result="some result text",
+        is_error=is_error,
+        structured_output=structured_output,
+    )
+    return [first, last]
+
+
+class TestClaudeParseResponse:
+    def test_parses_structured_output_successfully(self):
+        msgs = _make_claude_messages({"final_answer": "4", "reasoning": "math"})
+        fields = claude_parse(msgs, AgentResponse)
+        assert fields["output"] is not None
+        assert fields["output"].final_answer == "4"
+        assert fields["parse_error"] is None
+        assert fields["is_error"] is False
+
+    def test_extracts_metadata(self):
+        msgs = _make_claude_messages({"final_answer": "4", "reasoning": "math"})
+        fields = claude_parse(msgs, AgentResponse)
+        assert fields["uuid"] == "test-uuid"
+        assert fields["model"] == "sonnet"
+        assert fields["tools"] == ["Read", "Bash"]
+        assert fields["session_id"] == "sess-123"
+        assert fields["duration_ms"] == 500
+        assert fields["total_cost_usd"] == 0.05
+        assert fields["num_turns"] == 3
+
+    def test_handles_none_structured_output(self):
+        msgs = _make_claude_messages(structured_output=None)
+        fields = claude_parse(msgs, AgentResponse)
+        assert fields["output"] is None
+        assert "No structured output" in fields["parse_error"]
+        assert fields["is_error"] is True
+
+    def test_handles_invalid_structured_output(self):
+        msgs = _make_claude_messages({"wrong_field": "value"})
+        fields = claude_parse(msgs, AgentResponse)
+        assert fields["output"] is None
+        assert "ValidationError" in fields["parse_error"]
+
+    def test_complex_schema(self):
+        data = {
+            "action": "create",
+            "target_skill": None,
+            "proposed_skill": "calculator",
+            "justification": "needed for math",
+            "related_iterations": ["iter-1"],
+        }
+        msgs = _make_claude_messages(structured_output=data)
+        fields = claude_parse(msgs, SkillProposerResponse)
+        assert fields["output"].action == "create"
+        assert fields["output"].proposed_skill == "calculator"
+        assert fields["output"].related_iterations == ["iter-1"]
+
+    def test_is_error_propagates_from_last_message(self):
+        msgs = _make_claude_messages(
+            {"final_answer": "4", "reasoning": "math"}, is_error=True
+        )
+        fields = claude_parse(msgs, AgentResponse)
+        assert fields["is_error"] is True
+
+
+# ===========================================================================
+# OpenCode executor — parse_response
+# ===========================================================================
+
+def _make_opencode_message(info=None, parts=None, session_id="sess-456"):
+    return types.SimpleNamespace(
+        info=info,
+        parts=parts or [],
+        session_id=session_id,
+    )
+
+
+def _make_opencode_get_options(model_id="claude-sonnet-4-6", tools=None):
+    return lambda: {
+        "model_id": model_id,
+        "tools": tools or {"read": True, "bash": True},
+    }
+
+
+class TestOpencodeParseResponse:
+    def test_parses_structured_output_from_info(self):
+        msg = _make_opencode_message(
+            info={"structured_output": {"final_answer": "4", "reasoning": "math"}, "cost": 0.05, "tokens": {}}
+        )
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["output"] is not None
+        assert fields["output"].final_answer == "4"
+        assert fields["parse_error"] is None
+
+    def test_extracts_cost_from_info(self):
+        msg = _make_opencode_message(
+            info={"structured_output": {"final_answer": "4", "reasoning": "math"}, "cost": 0.123, "tokens": {"input": 10}}
+        )
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["total_cost_usd"] == 0.123
+        assert fields["usage"] == {"input": 10}
+
+    def test_handles_missing_structured_output(self):
+        msg = _make_opencode_message(info={"cost": 0.01, "tokens": {}})
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["output"] is None
+        assert fields["parse_error"] is not None
+
+    def test_handles_missing_info(self):
+        msg = types.SimpleNamespace(parts=[], session_id="sess-456")
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["output"] is None
+        assert fields["parse_error"] is not None
+
+    def test_handles_invalid_structured_output(self):
+        msg = _make_opencode_message(
+            info={"structured_output": {"wrong": "fields"}, "cost": 0, "tokens": {}}
+        )
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["output"] is None
+        assert "ValidationError" in fields["parse_error"]
+
+    def test_complex_schema(self):
+        data = {
+            "action": "edit",
+            "target_skill": "math-helper",
+            "proposed_skill": "improved calculator",
+            "justification": "needs fixing",
+            "related_iterations": [],
+        }
+        msg = _make_opencode_message(
+            info={"structured_output": data, "cost": 0.05, "tokens": {}}
+        )
+        fields = opencode_parse([msg], SkillProposerResponse, _make_opencode_get_options())
+        assert fields["output"].action == "edit"
+        assert fields["output"].target_skill == "math-helper"
+
+    def test_extracts_text_from_parts(self):
+        msg = _make_opencode_message(
+            info={"structured_output": {"final_answer": "4", "reasoning": "math"}, "cost": 0, "tokens": {}},
+            parts=[
+                {"type": "step-start", "id": "1"},
+                {"type": "text", "text": "hello "},
+                {"type": "text", "text": "world"},
+                {"type": "step-finish", "id": "2"},
+            ],
+        )
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["result"] == "hello world"
+
+    def test_structured_key_fallback(self):
+        msg = _make_opencode_message(
+            info={"structured": {"final_answer": "4", "reasoning": "math"}, "cost": 0, "tokens": {}}
+        )
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options())
+        assert fields["output"] is not None
+        assert fields["output"].final_answer == "4"
+
+    def test_model_from_options(self):
+        msg = _make_opencode_message(
+            info={"structured_output": {"final_answer": "4", "reasoning": "math"}, "cost": 0, "tokens": {}}
+        )
+        fields = opencode_parse([msg], AgentResponse, _make_opencode_get_options(model_id="opus"))
+        assert fields["model"] == "opus"

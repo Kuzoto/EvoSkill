@@ -896,7 +896,7 @@ requires-dist = [
     { name = "llm-sandbox", extras = ["docker"], specifier = ">=0.3.36" },
     { name = "nbformat", specifier = ">=5.10.4" },
     { name = "notebook", specifier = ">=7.5.3" },
-    { name = "opencode-ai", specifier = ">=0.0.26" },
+    { name = "opencode-ai", specifier = ">=0.1.0a36" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "pip", specifier = ">=26.0.1" },
     { name = "plotly", specifier = ">=6.5.2" },
