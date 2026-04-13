@@ -55,7 +55,7 @@ Install into <b>any coding agent</b> in seconds, and supercharge it with <b>AI-c
     <tr>
       <td><a href="https://openai.com/index/introducing-codex/">Codex CLI</a></td>
       <td>✅</td>
-      <td>Skill discovery not supported in skill_only mode</td>
+      <td>Skill discovery via .agents/skills/ symlink</td>
     </tr>
   </tbody>
 </table>   

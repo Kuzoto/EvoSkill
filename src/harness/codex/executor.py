@@ -66,6 +66,13 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     if not isinstance(options, dict):
         raise TypeError(f"Codex SDK requires dict options, got {type(options)}")
 
+    # Ensure Codex can discover skills written to .claude/skills/ by
+    # symlinking .agents/skills/ -> .claude/skills/ before starting the
+    # thread. Codex scans .agents/skills/ but EvoSkill writes to .claude/skills/.
+    from pathlib import Path
+    from .skill_discovery import ensure_agents_skills_symlink
+    ensure_agents_skills_symlink(Path(options.get("working_directory", ".")))
+
     # Create a new Codex instance and start a thread.
     # Unlike OpenCode (which manages a persistent HTTP server), Codex
     # handles its own process lifecycle internally.
