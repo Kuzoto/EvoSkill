@@ -73,7 +73,8 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     """
     if not shutil.which("goose"):
         raise RuntimeError(
-            "Goose CLI not found. Install with: brew install block-goose-cli"
+            "Goose CLI not found. Install with: brew install block-goose-cli\n"
+            "Requires v1.25.0+ for skill discovery support."
         )
 
     # Build the recipe YAML structure.
