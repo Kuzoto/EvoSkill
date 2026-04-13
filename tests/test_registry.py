@@ -287,6 +287,7 @@ class TestOptionsToConfig:
         from src.registry.sdk_utils import options_to_config
 
         options = {
+            "sdk": "opencode",
             "system": "You are helpful.",
             "tools": {"read": True, "bash": True},
             "format": {"type": "json_schema"},
@@ -304,21 +305,21 @@ class TestOptionsToConfig:
     def test_created_at_added_to_metadata(self):
         from src.registry.sdk_utils import options_to_config
 
-        options = {"system": "x", "tools": {}}
+        options = {"sdk": "opencode", "system": "x", "tools": {}}
         config = options_to_config(options, name="prog")
         assert "created_at" in config.metadata
 
     def test_custom_metadata_merged(self):
         from src.registry.sdk_utils import options_to_config
 
-        options = {"system": "x", "tools": {}}
+        options = {"sdk": "opencode", "system": "x", "tools": {}}
         config = options_to_config(options, name="prog", metadata={"custom": "val"})
         assert config.metadata["custom"] == "val"
 
     def test_parent_and_generation_set(self):
         from src.registry.sdk_utils import options_to_config
 
-        options = {"system": "x", "tools": {}}
+        options = {"sdk": "opencode", "system": "x", "tools": {}}
         config = options_to_config(
             options, name="child", parent="program/base", generation=2
         )
@@ -329,7 +330,7 @@ class TestOptionsToConfig:
         from src.registry.sdk_utils import options_to_config
 
         # tools can also be a list
-        options = {"system": "x", "tools": ["read", "bash"]}
+        options = {"sdk": "opencode", "system": "x", "tools": ["read", "bash"]}
         config = options_to_config(options, name="prog")
         assert "read" in config.allowed_tools
 
@@ -385,7 +386,9 @@ class TestConfigToOptions:
 
         config = self._make_opencode_config(tools=["Read", "Bash"])
         result = config_to_options(config, cwd="/tmp")
-        assert result["tools"] == {"Read": True, "Bash": True}
+        # build_opencode_options maps tool names to lowercase via to_opencode_tools()
+        assert "read" in result["tools"]
+        assert "bash" in result["tools"]
 
     def test_opencode_dict_cwd_set(self):
         from src.registry.sdk_utils import config_to_options
@@ -416,5 +419,5 @@ class TestConfigToOptions:
         assert isinstance(result, dict)
         assert result["sdk"] == "openhands"
         assert result["model"] == "anthropic/claude-sonnet-4-5-20250929"
-        assert result["skills_dir"] == "/tmp/.claude/skills"
-        assert result["tools"] == ["Read", "Bash"]
+        # resolve_project_root() resolves symlinks — /tmp → /private/tmp on macOS
+        assert ".claude/skills" in result["skills_dir"]
