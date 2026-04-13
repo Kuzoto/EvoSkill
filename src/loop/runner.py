@@ -11,13 +11,6 @@ from src.cache import RunCache, CacheConfig
 from src.registry.sdk_utils import options_to_config
 
 
-def _fmt_cost(cost: float) -> str:
-    """Format cost for display. Shows 'N/A (harness does not report cost)' when zero."""
-    if cost == 0.0:
-        return "N/A (harness does not report cost)"
-    return f"${cost:.4f}"
-
-
 def _log(phase: str, message: str = "", indent: int = 0) -> None:
     """Print a structured log message.
 
@@ -400,7 +393,7 @@ class SelfImprovingLoop:
 
             # Report per-iteration and cumulative cost
             self._total_cost += self._iter_cost
-            _log("COST", f"Iter {iteration_count} cost: {_fmt_cost(self._iter_cost)} | Running total: {_fmt_cost(self._total_cost)}")
+            _log("COST", f"Iter {iteration_count} cost: ${self._iter_cost:.4f} | Running total: ${self._total_cost:.4f}")
 
             # Save checkpoint at end of each successful iteration
             self._save_checkpoint(actual_iteration)
@@ -411,7 +404,7 @@ class SelfImprovingLoop:
         best_score = frontier[0][1] if frontier else 0.0
 
         _log("DONE", f"{iteration_count} iterations, best: {best or 'base'} ({best_score:.4f})")
-        _log("COST", f"Total cost: {_fmt_cost(self._total_cost)}")
+        _log("COST", f"Total cost: ${self._total_cost:.4f}")
         self._emit("loop_done", best=best or "base", best_score=best_score, iterations=iteration_count)
 
         return LoopResult(
@@ -443,7 +436,7 @@ class SelfImprovingLoop:
         )
         _log("", f"  -> Base score: {base_score:.4f}")
         _log("", f"  -> Frontier: {self.manager.get_frontier()}")
-        _log("COST", f"Base eval cost: {_fmt_cost(self._iter_cost)} | Total: {_fmt_cost(self._total_cost)}")
+        _log("COST", f"Base eval cost: ${self._iter_cost:.4f} | Total: ${self._total_cost:.4f}")
         self._emit("baseline", score=base_score)
 
     async def _evaluate(self, data: list[tuple[str, str, str]]) -> float:
