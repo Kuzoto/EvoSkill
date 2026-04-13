@@ -1,13 +1,16 @@
 """Utilities for converting between ProgramConfig and runtime agent options."""
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any
-
-from typing import Any
-
-from claude_agent_sdk import ClaudeAgentOptions
+from typing import Any, TYPE_CHECKING
 
 from .models import ProgramConfig
+
+if TYPE_CHECKING:
+    from claude_agent_sdk import ClaudeAgentOptions
+else:
+    ClaudeAgentOptions = Any
 
 
 def config_to_options(
@@ -29,7 +32,9 @@ def config_to_options(
     Returns:
         ClaudeAgentOptions ready for use with ClaudeSDKClient
     """
-    if config.metadata.get("sdk") == "opencode":
+    sdk = config.metadata.get("sdk")
+
+    if sdk == "opencode":
         system_prompt = config.system_prompt
         system_text = system_prompt.get("content") or system_prompt.get("append", "")
         return {
@@ -43,6 +48,53 @@ def config_to_options(
             "model_id": config.metadata.get("model_id", "claude-sonnet-4-6"),
         }
 
+    if sdk == "openhands":
+        system_prompt = config.system_prompt
+        system_text = system_prompt.get("content") or system_prompt.get("append", "")
+        provider_id = config.metadata.get("provider_id", "anthropic")
+        model_id = config.metadata.get("model_id", "claude-sonnet-4-5-20250929")
+        model = config.metadata.get("model") or f"{provider_id}/{model_id}"
+        return {
+            "sdk": "openhands",
+            "system": system_text,
+            "tools": list(config.allowed_tools),
+            "format": config.output_format,
+            "cwd": cwd,
+            "add_dirs": add_dirs or [],
+            "provider_id": provider_id,
+            "model_id": model_id,
+            "model": model,
+            "skills_dir": config.metadata.get("skills_dir") or f"{cwd}/.claude/skills",
+        }
+
+    if sdk == "codex":
+        system_prompt = config.system_prompt
+        system_text = system_prompt.get("content") or system_prompt.get("append", "")
+        return {
+            "system": system_text,
+            "output_schema": config.output_format.get("schema") if config.output_format else {},
+            "model": config.metadata.get("model", "codex-mini-latest"),
+            "working_directory": cwd,
+            "tools": config.allowed_tools,
+            "data_dirs": add_dirs or [],
+        }
+
+    if sdk == "goose":
+        system_prompt = config.system_prompt
+        system_text = system_prompt.get("content") or system_prompt.get("append", "")
+        provider = config.metadata.get("provider", "anthropic")
+        model = config.metadata.get("model", "claude-sonnet-4-6")
+        return {
+            "system": system_text,
+            "output_schema": config.output_format.get("schema") if config.output_format else {},
+            "provider": provider,
+            "model": model,
+            "working_directory": cwd,
+            "tools": config.allowed_tools,
+            "data_dirs": add_dirs or [],
+        }
+
+    from claude_agent_sdk import ClaudeAgentOptions
     return ClaudeAgentOptions(
         system_prompt=config.system_prompt,
         allowed_tools=config.allowed_tools,
@@ -80,6 +132,7 @@ def options_to_config(
         base_metadata.update(metadata)
 
     if isinstance(options, dict):
+        # Extract common fields shared across all dict-based harnesses
         system_text = options.get("system", "")
         tools = options.get("tools", {})
         if isinstance(tools, dict):
@@ -92,26 +145,105 @@ def options_to_config(
             if isinstance(system_text, dict)
             else {"type": "text", "content": system_text}
         )
-        base_metadata.update(
-            {
+
+        # Detect SDK type: prefer explicit "sdk" key, fall back to heuristic
+        sdk = options.get("sdk")
+        if sdk is None:
+            if "output_schema" in options and "provider" in options:
+                sdk = "goose"
+            elif "output_schema" in options:
+                sdk = "codex"
+            else:
+                sdk = "opencode"
+
+        # --- OpenCode ---
+        if sdk == "opencode":
+            base_metadata.update({
                 "sdk": "opencode",
                 "mode": options.get("mode", "build"),
                 "provider_id": options.get("provider_id"),
                 "model_id": options.get("model_id"),
                 "cwd": options.get("cwd"),
-            }
-        )
+            })
+            return ProgramConfig(
+                name=name,
+                parent=parent,
+                generation=generation,
+                system_prompt=system_prompt,
+                allowed_tools=allowed_tools,
+                output_format=options.get("format"),
+                metadata=base_metadata,
+            )
 
+        # --- OpenHands ---
+        if sdk == "openhands":
+            base_metadata.update({
+                "sdk": "openhands",
+                "provider_id": options.get("provider_id"),
+                "model_id": options.get("model_id"),
+                "model": options.get("model"),
+                "cwd": options.get("cwd"),
+                "skills_dir": options.get("skills_dir"),
+            })
+            return ProgramConfig(
+                name=name,
+                parent=parent,
+                generation=generation,
+                system_prompt=system_prompt,
+                allowed_tools=allowed_tools,
+                output_format=options.get("format"),
+                metadata=base_metadata,
+            )
+
+        # --- Codex ---
+        if sdk == "codex":
+            base_metadata.update({
+                "sdk": "codex",
+                "model": options.get("model", "codex-mini-latest"),
+                "working_directory": options.get("working_directory"),
+            })
+            return ProgramConfig(
+                name=name,
+                parent=parent,
+                generation=generation,
+                system_prompt=system_prompt,
+                allowed_tools=allowed_tools,
+                output_format={"schema": options.get("output_schema", {})},
+                metadata=base_metadata,
+            )
+
+        # --- Goose ---
+        if sdk == "goose":
+            base_metadata.update({
+                "sdk": "goose",
+                "provider": options.get("provider", "anthropic"),
+                "model": options.get("model", "claude-sonnet-4-6"),
+                "working_directory": options.get("working_directory"),
+            })
+            return ProgramConfig(
+                name=name,
+                parent=parent,
+                generation=generation,
+                system_prompt=system_prompt,
+                allowed_tools=allowed_tools,
+                output_format={"schema": options.get("output_schema", {})},
+                metadata=base_metadata,
+            )
+
+        # Unknown dict SDK — store what we can
+        base_metadata["sdk"] = sdk
         return ProgramConfig(
             name=name,
             parent=parent,
             generation=generation,
             system_prompt=system_prompt,
             allowed_tools=allowed_tools,
-            output_format=options.get("format"),
+            output_format=options.get("format") or options.get("output_schema"),
             metadata=base_metadata,
         )
 
+    # --- Claude (non-dict: ClaudeAgentOptions object) ---
+    base_metadata.setdefault("sdk", "claude")
     return ProgramConfig(
         name=name,
         parent=parent,
