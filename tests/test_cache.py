@@ -8,6 +8,10 @@ from unittest.mock import patch
 from src.cache.run_cache import CacheConfig, CacheEntry, RunCache
 from src.harness.agent import AgentTrace
 
+# Constants used to satisfy required sdk/model cache-key dimensions in tests.
+_SDK = "test"
+_MODEL = "test"
+
 
 # ===========================================================================
 # CacheConfig
@@ -94,36 +98,36 @@ class TestRunCacheSetGet:
 
     def test_cache_miss_returns_none(self, tmp_path):
         cache = self._make_cache(tmp_path)
-        result = cache.get("unknown question")
+        result = cache.get("unknown question", sdk=_SDK, model=_MODEL)
         assert result is None
 
     def test_set_then_get_returns_trace(self, tmp_path):
         cache = self._make_cache(tmp_path)
         trace = _make_trace(result="cached answer")
-        cache.set("my question", trace)
-        retrieved = cache.get("my question")
+        cache.set("my question", trace, sdk=_SDK, model=_MODEL)
+        retrieved = cache.get("my question", sdk=_SDK, model=_MODEL)
         assert retrieved is not None
         assert retrieved.result == "cached answer"
 
     def test_get_respects_content_boundary(self, tmp_path):
         cache = self._make_cache(tmp_path)
-        cache.set("question A", _make_trace("answer A"))
-        cache.set("question B", _make_trace("answer B"))
-        a = cache.get("question A")
-        b = cache.get("question B")
+        cache.set("question A", _make_trace("answer A"), sdk=_SDK, model=_MODEL)
+        cache.set("question B", _make_trace("answer B"), sdk=_SDK, model=_MODEL)
+        a = cache.get("question A", sdk=_SDK, model=_MODEL)
+        b = cache.get("question B", sdk=_SDK, model=_MODEL)
         assert a.result == "answer A"
         assert b.result == "answer B"
 
     def test_set_when_disabled_is_noop(self, tmp_path):
         cache = self._make_cache(tmp_path, enabled=False)
-        cache.set("q", _make_trace())
+        cache.set("q", _make_trace(), sdk=_SDK, model=_MODEL)
         # cache dir should not have been written to
         assert not (tmp_path / ".cache" / "runs").exists() or \
                len(list((tmp_path / ".cache" / "runs").glob("**/*.json"))) == 0
 
     def test_get_when_disabled_returns_none(self, tmp_path):
         cache = self._make_cache(tmp_path, enabled=False)
-        result = cache.get("some question")
+        result = cache.get("some question", sdk=_SDK, model=_MODEL)
         assert result is None
 
     def test_messages_not_stored_by_default(self, tmp_path):
@@ -137,8 +141,8 @@ class TestRunCacheSetGet:
             is_error=False,
             messages=[{"role": "user", "content": "hello"}],
         )
-        cache.set("q", trace)
-        retrieved = cache.get("q")
+        cache.set("q", trace, sdk=_SDK, model=_MODEL)
+        retrieved = cache.get("q", sdk=_SDK, model=_MODEL)
         assert retrieved.messages == []
 
     def test_messages_stored_when_option_enabled(self, tmp_path):
@@ -152,21 +156,21 @@ class TestRunCacheSetGet:
             is_error=False,
             messages=[{"role": "user", "content": "hello"}],
         )
-        cache.set("q", trace)
-        retrieved = cache.get("q")
+        cache.set("q", trace, sdk=_SDK, model=_MODEL)
+        retrieved = cache.get("q", sdk=_SDK, model=_MODEL)
         assert len(retrieved.messages) == 1
 
     def test_corrupted_cache_entry_returns_none(self, tmp_path):
         cache = self._make_cache(tmp_path)
         trace = _make_trace()
-        cache.set("q", trace)
+        cache.set("q", trace, sdk=_SDK, model=_MODEL)
 
         # Corrupt the cache file
         tree_hash = cache._get_tree_hash()
-        cache_path = cache._get_cache_path(tree_hash, "q")
+        cache_path = cache._get_cache_path(tree_hash, "q", _SDK, _MODEL)
         cache_path.write_text("{ invalid json }")
 
-        result = cache.get("q")
+        result = cache.get("q", sdk=_SDK, model=_MODEL)
         assert result is None
 
     def test_structured_output_round_trip(self, tmp_path):
@@ -175,9 +179,9 @@ class TestRunCacheSetGet:
         cache = self._make_cache(tmp_path)
         output = AgentResponse(final_answer="42", reasoning="math")
         trace = _make_trace(output=output)
-        cache.set("q with output", trace)
+        cache.set("q with output", trace, sdk=_SDK, model=_MODEL)
 
-        retrieved = cache.get("q with output", response_model=AgentResponse)
+        retrieved = cache.get("q with output", response_model=AgentResponse, sdk=_SDK, model=_MODEL)
         assert retrieved is not None
         assert retrieved.output.final_answer == "42"
 
@@ -193,16 +197,16 @@ class TestRunCacheClear:
 
     def test_clear_all_returns_count(self, tmp_path):
         cache = self._make_cache(tmp_path)
-        cache.set("q1", _make_trace())
-        cache.set("q2", _make_trace())
+        cache.set("q1", _make_trace(), sdk=_SDK, model=_MODEL)
+        cache.set("q2", _make_trace(), sdk=_SDK, model=_MODEL)
         count = cache.clear()
         assert count >= 2
 
     def test_clear_all_empties_cache(self, tmp_path):
         cache = self._make_cache(tmp_path)
-        cache.set("q", _make_trace())
+        cache.set("q", _make_trace(), sdk=_SDK, model=_MODEL)
         cache.clear()
-        assert cache.get("q") is None
+        assert cache.get("q", sdk=_SDK, model=_MODEL) is None
 
     def test_clear_when_disabled_returns_zero(self, tmp_path):
         config = CacheConfig(cache_dir=tmp_path / "runs", enabled=False)
@@ -211,12 +215,12 @@ class TestRunCacheClear:
 
     def test_clear_specific_tree_hash(self, tmp_path):
         cache = self._make_cache(tmp_path)
-        cache.set("q", _make_trace())
+        cache.set("q", _make_trace(), sdk=_SDK, model=_MODEL)
         tree_hash = cache._get_tree_hash()
 
         count = cache.clear(tree_hash=tree_hash)
         assert count >= 1
-        assert cache.get("q") is None
+        assert cache.get("q", sdk=_SDK, model=_MODEL) is None
 
 
 # ===========================================================================
@@ -237,7 +241,7 @@ class TestRunCacheStats:
 
     def test_stats_after_set(self, tmp_path):
         cache = self._make_cache(tmp_path)
-        cache.set("q1", _make_trace())
+        cache.set("q1", _make_trace(), sdk=_SDK, model=_MODEL)
         stats = cache.stats()
         assert stats["total_entries"] >= 1
         assert stats["total_size_bytes"] > 0
