@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..model_aliases import normalize_harness_model, strip_model_provider
 from ..utils import resolve_project_root, resolve_data_dirs
 
 
@@ -52,6 +53,10 @@ def build_claudecode_options(
         kwargs["add_dirs"] = resolve_data_dirs(root, data_dirs)
 
     options = ClaudeAgentOptions(**kwargs)
-    if model:
-        options.model = model
+    normalized_model = strip_model_provider(
+        normalize_harness_model("claude", model),
+        "anthropic",
+    )
+    if normalized_model:
+        options.model = normalized_model
     return options

@@ -5,16 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..model_aliases import DEFAULT_ANTHROPIC_MODEL, normalize_harness_model
 from ..utils import resolve_data_dirs, resolve_project_root
 from .workspace import prepare_data_dir_mounts, serialize_data_dir_mounts
 
 
-DEFAULT_OPENHANDS_MODEL = "anthropic/claude-sonnet-4-5-20250929"
+DEFAULT_OPENHANDS_MODEL = DEFAULT_ANTHROPIC_MODEL
 
 
 def split_openhands_model(model: str | None) -> tuple[str, str]:
     """Parse 'provider/model' string into (provider_id, model_id)."""
-    full = model or DEFAULT_OPENHANDS_MODEL
+    full = normalize_harness_model("openhands", model)
     if "/" in full:
         return full.split("/", 1)
     return "anthropic", full

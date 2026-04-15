@@ -49,6 +49,8 @@ def eval_cmd(verbose: bool):
             project_root=cfg.project_root,
         ),
         AgentResponse,
+        timeout_seconds=cfg.harness.timeout_seconds,
+        max_retries=cfg.harness.max_retries,
     )
     scorer = make_scorer(cfg)
 

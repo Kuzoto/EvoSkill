@@ -252,13 +252,20 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool):
         project_root=cfg.project_root,
     )
     agents = LoopAgents(
-        base=Agent(base_factory, AgentResponse),
+        base=Agent(
+            base_factory,
+            AgentResponse,
+            timeout_seconds=cfg.harness.timeout_seconds,
+            max_retries=cfg.harness.max_retries,
+        ),
         skill_proposer=Agent(
             make_skill_proposer_options(
                 project_root=cfg.project_root,
                 model=cfg.harness.model,
             ),
             SkillProposerResponse,
+            timeout_seconds=cfg.harness.timeout_seconds,
+            max_retries=cfg.harness.max_retries,
         ),
         prompt_proposer=Agent(
             make_prompt_proposer_options(
@@ -266,6 +273,8 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool):
                 model=cfg.harness.model,
             ),
             PromptProposerResponse,
+            timeout_seconds=cfg.harness.timeout_seconds,
+            max_retries=cfg.harness.max_retries,
         ),
         skill_generator=Agent(
             make_skill_generator_options(
@@ -273,6 +282,8 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool):
                 model=cfg.harness.model,
             ),
             ToolGeneratorResponse,
+            timeout_seconds=cfg.harness.timeout_seconds,
+            max_retries=cfg.harness.max_retries,
         ),
         prompt_generator=Agent(
             make_prompt_generator_options(
@@ -280,6 +291,8 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool):
                 model=cfg.harness.model,
             ),
             PromptGeneratorResponse,
+            timeout_seconds=cfg.harness.timeout_seconds,
+            max_retries=cfg.harness.max_retries,
         ),
     )
     manager = ProgramManager(cwd=cfg.project_root)

@@ -16,12 +16,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..model_aliases import DEFAULT_ANTHROPIC_MODEL, normalize_harness_model
 from ..utils import resolve_project_root, resolve_data_dirs
 
 
 # Default model and provider when none is specified.
-DEFAULT_GOOSE_MODEL = "claude-sonnet-4-6"
-DEFAULT_GOOSE_PROVIDER = "anthropic"
+DEFAULT_GOOSE_PROVIDER, DEFAULT_GOOSE_MODEL = DEFAULT_ANTHROPIC_MODEL.split("/", 1)
 
 
 def split_goose_model(model: str | None) -> tuple[str, str]:
@@ -38,12 +38,11 @@ def split_goose_model(model: str | None) -> tuple[str, str]:
     Returns:
         (provider, model_name) tuple.
     """
-    if model is None:
-        return DEFAULT_GOOSE_PROVIDER, DEFAULT_GOOSE_MODEL
-    if "/" in model:
-        provider, model_name = model.split("/", 1)
+    full = normalize_harness_model("goose", model)
+    if "/" in full:
+        provider, model_name = full.split("/", 1)
         return provider, model_name
-    return DEFAULT_GOOSE_PROVIDER, model
+    return DEFAULT_GOOSE_PROVIDER, full
 
 
 def build_goose_options(

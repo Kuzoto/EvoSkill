@@ -1,16 +1,20 @@
 """evoskill init — interactive project setup."""
 
+import json
 import tomllib
 from pathlib import Path
 
 import click
+from src.harness.model_aliases import default_model_for_harness
 
 EVOSKILL_DIR = '.evoskill'
 DEFAULT_CONFIG = {
     'harness': {
         'name': 'claude',
-        'model': 'sonnet',
+        'model': default_model_for_harness('claude'),
         'data_dirs': [],
+        'timeout_seconds': 1200,
+        'max_retries': 3,
     },
     'evolution': {
         'mode': 'skill_only',
@@ -47,9 +51,94 @@ TASK_MD_TEMPLATE = (
 )
 
 
-def _write_config(path: Path, answers: dict) -> None:
-    import tomli_w
+def _require_non_empty(value: str) -> bool | str:
+    if value.strip():
+        return True
+    return 'This field is required.'
 
+
+def _format_toml_value(value: object) -> str:
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, int | float):
+        return str(value)
+    raise TypeError(f'Unsupported TOML value: {type(value)!r}')
+
+
+def _append_toml_field(lines: list[str], comment: str, key: str, value: object) -> None:
+    lines.append(f'# {comment}')
+    lines.append(f'{key} = {_format_toml_value(value)}')
+
+
+def _append_toml_list_field(lines: list[str], comment: str, key: str, values: list[str]) -> None:
+    lines.append(f'# {comment}')
+    if not values:
+        lines.append(f'{key} = []')
+        return
+
+    lines.append(f'{key} = [')
+    for value in values:
+        lines.append(f'    {_format_toml_value(value)},')
+    lines.append(']')
+
+
+def _render_config(config: dict) -> str:
+    lines: list[str] = [
+        '# EvoSkill project configuration.',
+        '# Edit these defaults if your task or runtime needs different behavior.',
+        '',
+        '[harness]',
+    ]
+    _append_toml_field(lines, 'Agent runtime used to execute EvoSkill runs.', 'name', config['harness']['name'])
+    lines.append('')
+    _append_toml_field(lines, 'Default model for the selected runtime.', 'model', config['harness']['model'])
+    lines.append('')
+    _append_toml_list_field(lines, 'Additional folders the agent can interact with during runs.', 'data_dirs', config['harness']['data_dirs'])
+    lines.append('')
+    _append_toml_field(lines, 'Maximum time allowed for one agent attempt, in seconds.', 'timeout_seconds', config['harness']['timeout_seconds'])
+    lines.append('')
+    _append_toml_field(lines, 'How many times to retry a failed or timed-out agent attempt.', 'max_retries', config['harness']['max_retries'])
+    lines.extend([
+        '',
+        '[evolution]',
+    ])
+    _append_toml_field(lines, 'What EvoSkill is allowed to optimize: skills or the base prompt.', 'mode', config['evolution']['mode'])
+    lines.append('')
+    _append_toml_field(lines, 'Maximum number of improvement iterations to run.', 'iterations', config['evolution']['iterations'])
+    lines.append('')
+    _append_toml_field(lines, 'How many top programs to keep in the frontier at once.', 'frontier_size', config['evolution']['frontier_size'])
+    lines.append('')
+    _append_toml_field(lines, 'How many evaluations can run in parallel.', 'concurrency', config['evolution']['concurrency'])
+    lines.append('')
+    _append_toml_field(lines, 'Stop after this many iterations with no improvement.', 'no_improvement_limit', config['evolution']['no_improvement_limit'])
+    lines.append('')
+    _append_toml_field(lines, 'How many failing examples to sample when proposing changes.', 'failure_samples', config['evolution']['failure_samples'])
+    lines.extend([
+        '',
+        '[dataset]',
+    ])
+    _append_toml_field(lines, 'Path to the dataset CSV. Relative paths are resolved from .evoskill/.', 'path', config['dataset']['path'])
+    lines.append('')
+    _append_toml_field(lines, 'CSV column containing the question or task input.', 'question_column', config['dataset']['question_column'])
+    lines.append('')
+    _append_toml_field(lines, 'CSV column containing the expected answer.', 'ground_truth_column', config['dataset']['ground_truth_column'])
+    lines.append('')
+    _append_toml_field(lines, 'CSV column used to group or stratify examples.', 'category_column', config['dataset']['category_column'])
+    lines.append('')
+    _append_toml_field(lines, 'Fraction of each category used for training samples.', 'train_ratio', config['dataset']['train_ratio'])
+    lines.append('')
+    _append_toml_field(lines, 'Fraction of each category used for validation samples.', 'val_ratio', config['dataset']['val_ratio'])
+    lines.extend([
+        '',
+        '[scorer]',
+    ])
+    _append_toml_field(lines, 'Scoring rule used to compare predictions against ground truth.', 'type', config['scorer']['type'])
+    return '\n'.join(lines) + '\n'
+
+
+def _write_config(path: Path, answers: dict) -> None:
     config = {
         'harness': dict(DEFAULT_CONFIG['harness']),
         'evolution': dict(DEFAULT_CONFIG['evolution']),
@@ -57,28 +146,24 @@ def _write_config(path: Path, answers: dict) -> None:
         'scorer': dict(DEFAULT_CONFIG['scorer']),
     }
     config['harness']['name'] = answers['harness']
+    config['harness']['model'] = default_model_for_harness(answers['harness'])
     config['harness']['data_dirs'] = answers['data_dirs']
-    config['evolution']['mode'] = answers['mode']
+    config['evolution']['mode'] = answers.get('mode', DEFAULT_CONFIG['evolution']['mode'])
     config['dataset']['path'] = answers['dataset_path']
     config['dataset']['question_column'] = answers['question_col']
     config['dataset']['ground_truth_column'] = answers['gt_col']
-    if answers['category_col']:
-        config['dataset']['category_column'] = answers['category_col']
-    else:
-        config['dataset'].pop('category_column', None)
+    config['dataset']['category_column'] = answers['category_col']
 
-    with open(path, 'wb') as f:
-        tomli_w.dump(config, f)
+    path.write_text(_render_config(config), encoding='utf-8')
 
 
 def _load_prompt_defaults(config_path: Path) -> dict[str, str]:
     defaults = {
         'harness': DEFAULT_CONFIG['harness']['name'],
-        'mode': DEFAULT_CONFIG['evolution']['mode'],
         'dataset_path': DEFAULT_CONFIG['dataset']['path'],
         'question_col': DEFAULT_CONFIG['dataset']['question_column'],
         'gt_col': DEFAULT_CONFIG['dataset']['ground_truth_column'],
-        'category_col': '',
+        'category_col': 'category',
         'data_dirs_raw': '',
     }
     if not config_path.exists():
@@ -88,15 +173,13 @@ def _load_prompt_defaults(config_path: Path) -> dict[str, str]:
         raw = tomllib.load(f)
 
     harness = raw.get('harness', {})
-    evolution = raw.get('evolution', {})
     dataset = raw.get('dataset', {})
 
     defaults['harness'] = harness.get('name', defaults['harness'])
-    defaults['mode'] = evolution.get('mode', defaults['mode'])
     defaults['dataset_path'] = dataset.get('path', defaults['dataset_path'])
     defaults['question_col'] = dataset.get('question_column', defaults['question_col'])
     defaults['gt_col'] = dataset.get('ground_truth_column', defaults['gt_col'])
-    defaults['category_col'] = dataset.get('category_column', defaults['category_col']) or ''
+    defaults['category_col'] = dataset.get('category_column', defaults['category_col']) or defaults['category_col']
     defaults['data_dirs_raw'] = ','.join(harness.get('data_dirs', []))
     return defaults
 
@@ -123,33 +206,37 @@ def init_cmd():
     click.echo('  EvoSkill — Project Setup')
 
     harness = questionary.select(
-        'Which harness?',
+        'Which agent runtime do you want to use?',
         choices=['claude', 'opencode', 'codex', 'goose', 'openhands'],
         default=prompt_defaults['harness'],
     ).ask()
 
-    mode = questionary.select(
-        'Evolution mode?',
-        choices=[
-            questionary.Choice('skill_only  — agent learns new skills (recommended)', value='skill_only'),
-            questionary.Choice('prompt_only — rewrites the base prompt instead', value='prompt_only'),
-        ],
-        default=prompt_defaults['mode'],
+    dataset_path = questionary.text(
+        'Path to the dataset CSV?',
+        default=prompt_defaults['dataset_path'],
+        validate=_require_non_empty,
     ).ask()
-
-    dataset_path = questionary.text('Dataset path?', default=prompt_defaults['dataset_path']).ask()
-    question_col = questionary.text('Question column name?', default=prompt_defaults['question_col']).ask()
-    gt_col = questionary.text('Ground truth column name?', default=prompt_defaults['gt_col']).ask()
+    question_col = questionary.text(
+        'Question/input column name?',
+        default=prompt_defaults['question_col'],
+        validate=_require_non_empty,
+    ).ask()
+    gt_col = questionary.text(
+        'Answer column name?',
+        default=prompt_defaults['gt_col'],
+        validate=_require_non_empty,
+    ).ask()
     category_col = questionary.text(
-        'Category column name? (for stratified sampling, leave blank if none)',
+        'Category/difficulty column name?',
         default=prompt_defaults['category_col'],
+        validate=_require_non_empty,
     ).ask()
     data_dirs_raw = questionary.text(
-        'Extra data directories for the agent? (comma-separated paths, leave blank if none)',
+        'Additional folders the agent can interact with? (comma-separated paths, leave blank if none)',
         default=prompt_defaults['data_dirs_raw'],
     ).ask()
 
-    if any(v is None for v in [harness, mode, dataset_path, question_col, gt_col, category_col, data_dirs_raw]):
+    if any(v is None for v in [harness, dataset_path, question_col, gt_col, category_col, data_dirs_raw]):
         click.echo('\n  Aborted.')
         raise SystemExit(1)
 
@@ -163,7 +250,6 @@ def init_cmd():
         evoskill_dir / 'config.toml',
         {
             'harness': harness,
-            'mode': mode,
             'dataset_path': dataset_path,
             'question_col': question_col,
             'gt_col': gt_col,
@@ -174,6 +260,16 @@ def init_cmd():
     (evoskill_dir / 'task.md').write_text(TASK_MD_TEMPLATE)
 
     click.echo(f'  ✓ Created {cwd}/{EVOSKILL_DIR}')
-    click.echo(f'    → Fill in {cwd}/{EVOSKILL_DIR}/task.md  (task description + constraints)')
-    click.echo(f'    → Place your dataset at: {dataset_path}')
-    click.echo(f'    → Run: evoskill run')
+    click.echo('')
+    click.echo(f'    Runtime: {harness}')
+    click.echo(f'    Dataset: {dataset_path}')
+    click.echo('    Columns:')
+    click.echo(f'      question: {question_col}')
+    click.echo(f'      answer: {gt_col}')
+    click.echo(f'      category: {category_col}')
+    click.echo(f'    Extra data dirs: {", ".join(data_dirs) if data_dirs else "none"}')
+    click.echo('')
+    click.echo('    Next:')
+    click.echo(f'      1. Fill in {cwd}/{EVOSKILL_DIR}/task.md')
+    click.echo(f'      2. Review {cwd}/{EVOSKILL_DIR}/config.toml if needed')
+    click.echo('      3. Run: evoskill run')

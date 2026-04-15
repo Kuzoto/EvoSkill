@@ -221,10 +221,16 @@ class TestAgentGetOptions:
 class TestAgentRetryLogic:
     """Test retry and timeout behaviour by mocking _execute_query."""
 
-    def _make_agent(self):
+    def _make_agent(self, **kwargs):
         from src.schemas import AgentResponse
 
-        return Agent(options={"system": "x"}, response_model=AgentResponse)
+        return Agent(options={"system": "x"}, response_model=AgentResponse, **kwargs)
+
+    def test_agent_accepts_timeout_and_retry_overrides(self):
+        agent = self._make_agent(timeout_seconds=42, max_retries=5)
+
+        assert agent.timeout_seconds == 42
+        assert agent.max_retries == 5
 
     def test_success_on_first_attempt(self):
         agent = self._make_agent()
@@ -260,7 +266,7 @@ class TestAgentRetryLogic:
         assert call_count["n"] == 2
 
     def test_raises_after_all_retries_exhausted(self):
-        agent = self._make_agent()
+        agent = self._make_agent(max_retries=2)
 
         async def always_fail(query):
             raise RuntimeError("permanent failure")
@@ -275,8 +281,28 @@ class TestAgentRetryLogic:
         with pytest.raises(RuntimeError, match="permanent failure"):
             asyncio.run(run())
 
+    def test_retry_count_respects_instance_override(self):
+        agent = self._make_agent(max_retries=2)
+        call_count = {"n": 0}
+
+        async def always_fail(query):
+            call_count["n"] += 1
+            raise RuntimeError("permanent failure")
+
+        async def run():
+            with (
+                patch.object(agent, "_execute_query", side_effect=always_fail),
+                patch("asyncio.sleep", AsyncMock()),
+            ):
+                return await agent._run_with_retry("hello?")
+
+        with pytest.raises(RuntimeError, match="permanent failure"):
+            asyncio.run(run())
+
+        assert call_count["n"] == 2
+
     def test_timeout_triggers_retry(self):
-        agent = self._make_agent()
+        agent = self._make_agent(timeout_seconds=1)
         call_count = {"n": 0}
         expected = [MagicMock()]
 

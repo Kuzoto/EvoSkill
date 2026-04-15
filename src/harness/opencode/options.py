@@ -13,10 +13,11 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..model_aliases import DEFAULT_ANTHROPIC_MODEL, normalize_harness_model
 from ..utils import resolve_project_root, resolve_data_dirs
 
 
-DEFAULT_OPENCODE_MODEL = "anthropic/claude-sonnet-4-6"
+DEFAULT_OPENCODE_MODEL = DEFAULT_ANTHROPIC_MODEL
 
 CLAUDE_TO_OPENCODE_TOOL = {
     "Read": "read",
@@ -36,7 +37,7 @@ CLAUDE_TO_OPENCODE_TOOL = {
 
 def split_opencode_model(model: str | None) -> tuple[str, str]:
     """Parse 'provider/model' string into (provider_id, model_id)."""
-    full = model or DEFAULT_OPENCODE_MODEL
+    full = normalize_harness_model("opencode", model)
     if "/" in full:
         return full.split("/", 1)
     return "anthropic", full

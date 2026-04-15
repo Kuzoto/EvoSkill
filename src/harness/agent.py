@@ -136,9 +136,20 @@ class Agent(Generic[T]):
     MAX_RETRIES = 3          # Total attempts before giving up
     INITIAL_BACKOFF = 30     # Seconds to wait after first failure (doubles each retry)
 
-    def __init__(self, options: OptionsProvider, response_model: Type[T]):
+    def __init__(
+        self,
+        options: OptionsProvider,
+        response_model: Type[T],
+        *,
+        timeout_seconds: int | None = None,
+        max_retries: int | None = None,
+    ):
         self._options = options
         self.response_model = response_model
+        self.timeout_seconds = (
+            self.TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+        )
+        self.max_retries = self.MAX_RETRIES if max_retries is None else max_retries
 
     def _get_options(self) -> Union[ClaudeAgentOptionsType, dict[str, Any]]:
         """Resolve options — if it's a factory (callable), call it to get fresh options."""
@@ -172,7 +183,7 @@ class Agent(Generic[T]):
     async def _run_with_retry(self, query: str) -> list[Any]:
         """Execute query with timeout and exponential backoff retry.
 
-        Attempts up to MAX_RETRIES times. On each failure:
+        Attempts up to max_retries times. On each failure:
             - Logs a warning
             - Waits (30s → 60s → 120s)
             - Tries again
@@ -182,24 +193,24 @@ class Agent(Generic[T]):
         last_error: Exception | None = None
         backoff = self.INITIAL_BACKOFF
 
-        for attempt in range(self.MAX_RETRIES):
+        for attempt in range(self.max_retries):
             try:
-                async with asyncio.timeout(self.TIMEOUT_SECONDS):
+                async with asyncio.timeout(self.timeout_seconds):
                     return await self._execute_query(query)
             except asyncio.TimeoutError:
                 last_error = TimeoutError(
-                    f"Query timed out after {self.TIMEOUT_SECONDS}s"
+                    f"Query timed out after {self.timeout_seconds}s"
                 )
                 logger.warning(
-                    f"Attempt {attempt + 1}/{self.MAX_RETRIES} timed out. Retrying in {backoff}s..."
+                    f"Attempt {attempt + 1}/{self.max_retries} timed out. Retrying in {backoff}s..."
                 )
             except Exception as e:
                 last_error = e
                 logger.warning(
-                    f"Attempt {attempt + 1}/{self.MAX_RETRIES} failed: {e}. Retrying in {backoff}s..."
+                    f"Attempt {attempt + 1}/{self.max_retries} failed: {e}. Retrying in {backoff}s..."
                 )
 
-            if attempt < self.MAX_RETRIES - 1:
+            if attempt < self.max_retries - 1:
                 await asyncio.sleep(backoff)
                 backoff *= 2  # Exponential backoff: 30s → 60s → 120s
 
