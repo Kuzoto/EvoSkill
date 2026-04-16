@@ -205,11 +205,19 @@ def init_cmd():
 
     click.echo('  EvoSkill — Project Setup')
 
+    click.echo('\n  Note: OpenHands does not support native structured output.')
+    click.echo('  It uses fallback JSON extraction which may be less reliable.\n')
+
     harness = questionary.select(
         'Which agent runtime do you want to use?',
         choices=['claude', 'opencode', 'codex', 'goose', 'openhands'],
         default=prompt_defaults['harness'],
     ).ask()
+
+    if harness == 'openhands':
+        click.echo('\n  ⚠️  You selected OpenHands. Structured output uses fallback JSON')
+        click.echo('     extraction. Consider Claude Code, OpenCode, or Goose for')
+        click.echo('     more reliable structured output.\n')
 
     dataset_path = questionary.text(
         'Path to the dataset CSV?',

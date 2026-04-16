@@ -1,4 +1,9 @@
-"""OpenHands SDK execution and structured-output fallback."""
+"""OpenHands SDK execution and structured-output fallback.
+
+Note: OpenHands does not support native structured output. The executor
+uses fallback JSON extraction from the agent's text response, which may
+be less reliable than native structured output (Claude, OpenCode, Codex, Goose).
+"""
 
 from __future__ import annotations
 
@@ -6,12 +11,16 @@ import asyncio
 import importlib
 import inspect
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any, Callable, Type
 
 from pydantic import BaseModel, SecretStr, ValidationError
+
+logger = logging.getLogger(__name__)
+_WARNED_ONCE = False
 
 
 _DIRECT_PARSE_RESPONSE_MODELS = {
@@ -207,6 +216,14 @@ def _build_workspace(sdk_module: Any, options: dict[str, Any]) -> Any:
 
 async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     """Execute a query via OpenHands and return execution context for parsing."""
+    global _WARNED_ONCE
+    if not _WARNED_ONCE:
+        logger.warning(
+            "OpenHands does not support native structured output. "
+            "Using fallback JSON extraction which may be less reliable."
+        )
+        _WARNED_ONCE = True
+
     sdk_module = _import_openhands_sdk()
     tool_name_map = _register_openhands_tools()
     llm_kwargs: dict[str, Any] = {

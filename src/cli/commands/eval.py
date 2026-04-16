@@ -26,6 +26,10 @@ def eval_cmd(verbose: bool):
     sdk = cfg.harness.name
     set_sdk(sdk)
 
+    if sdk == "openhands":
+        console.print("  [yellow]Warning:[/yellow] OpenHands does not support native structured output.")
+        console.print("  Using fallback JSON extraction which may be less reliable.\n")
+
     try:
         _, val_data = load_and_split(cfg)
     except FileNotFoundError:

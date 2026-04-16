@@ -231,6 +231,10 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool):
 
     console.print(f"\n  [bold]EvoSkill[/bold] — {cfg.evolution.mode}  |  {cfg.harness.name}  |  {cfg.evolution.iterations} iterations\n")
 
+    if cfg.harness.name == "openhands":
+        console.print("  [yellow]Warning:[/yellow] OpenHands does not support native structured output.")
+        console.print("  Using fallback JSON extraction which may be less reliable.\n")
+
     # Map harness to sdk
     sdk = cfg.harness.name  # "claude" or "opencode"
     set_sdk(sdk)
