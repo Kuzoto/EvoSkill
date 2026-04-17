@@ -958,6 +958,31 @@ class TestGooseExecuteQueryErrors:
         with pytest.raises(RuntimeError, match="Goose CLI not found"):
             asyncio.run(run())
 
+    def test_raises_runtime_error_when_openrouter_key_missing(self):
+        import asyncio
+        from unittest.mock import patch
+        from src.harness.goose.executor import execute_query
+
+        async def run():
+            with patch("shutil.which", return_value="/usr/local/bin/goose"):
+                await execute_query(
+                    {
+                        "system": "test",
+                        "output_schema": {},
+                        "provider": "openrouter",
+                        "model": "openai/gpt-5-mini",
+                    },
+                    "query",
+                )
+
+        with pytest.raises(RuntimeError, match="OpenRouter API key not configured"):
+            with patch.dict(
+                "os.environ",
+                {"OPENROUTER_API_KEY": "", "LLM_API_KEY": ""},
+                clear=False,
+            ):
+                asyncio.run(run())
+
 
 class TestGooseOptions:
     """Test the Goose options builder — pure dict construction, no subprocess calls."""

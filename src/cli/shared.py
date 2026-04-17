@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -39,6 +40,15 @@ def load_and_split(cfg: ProjectConfig):
 
 def infer_provider(model: str) -> str:
     """Infer the LLM provider from the configured model name."""
+    normalized = model.strip()
+    if normalized.startswith("openrouter/"):
+        return "openrouter"
+    if normalized.startswith("anthropic/"):
+        return "anthropic"
+    if normalized.startswith("openai/"):
+        return "openai"
+    if normalized.startswith("google/"):
+        return "google"
     if model.startswith("claude"):
         return "anthropic"
     if model.startswith(("gpt-", "o1", "o3", "o4")):
@@ -48,14 +58,32 @@ def infer_provider(model: str) -> str:
     return "anthropic"
 
 
+def _normalize_provider_model(provider: str, model: str) -> str:
+    """Strip provider prefixes that the downstream SDKs do not expect."""
+    normalized = model.strip()
+
+    if provider == "openrouter" and normalized.startswith("openrouter/"):
+        return normalized[len("openrouter/") :]
+    if provider == "anthropic" and normalized.startswith("anthropic/"):
+        return normalized[len("anthropic/") :]
+    if provider == "openai" and normalized.startswith("openai/"):
+        return normalized[len("openai/") :]
+    if provider == "google" and normalized.startswith("google/"):
+        return normalized[len("google/") :]
+
+    return normalized
+
+
 async def call_llm(provider: str, model: str, prompt: str) -> str:
     """Call the requested LLM provider and return the raw text response."""
+    normalized_model = _normalize_provider_model(provider, model)
+
     if provider == "anthropic":
         import anthropic
 
         client = anthropic.AsyncAnthropic()
         response = await client.messages.create(
-            model=model,
+            model=normalized_model,
             max_tokens=16,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -71,7 +99,39 @@ async def call_llm(provider: str, model: str, prompt: str) -> str:
 
         client = openai.AsyncOpenAI()
         response = await client.chat.completions.create(
-            model=model,
+            model=normalized_model,
+            max_tokens=16,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+
+    if provider == "openrouter":
+        try:
+            import openai
+        except ImportError as exc:
+            raise RuntimeError(
+                "openai package not installed. Run: uv add openai"
+            ) from exc
+
+        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("LLM_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "OpenRouter API key not configured. Set OPENROUTER_API_KEY or LLM_API_KEY."
+            )
+
+        default_headers: dict[str, str] = {}
+        if referer := os.environ.get("OPENROUTER_HTTP_REFERER"):
+            default_headers["HTTP-Referer"] = referer
+        if title := (os.environ.get("OPENROUTER_APP_TITLE") or os.environ.get("OPENROUTER_TITLE")):
+            default_headers["X-OpenRouter-Title"] = title
+
+        client = openai.AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+            default_headers=default_headers or None,
+        )
+        response = await client.chat.completions.create(
+            model=normalized_model,
             max_tokens=16,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -86,7 +146,7 @@ async def call_llm(provider: str, model: str, prompt: str) -> str:
             ) from exc
 
         client = genai.Client()
-        response = await client.aio.models.generate_content(model=model, contents=prompt)
+        response = await client.aio.models.generate_content(model=normalized_model, contents=prompt)
         return response.text
 
     raise ValueError(f"Unknown provider: {provider}")

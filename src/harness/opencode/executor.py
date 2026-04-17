@@ -9,6 +9,7 @@ This module handles all OpenCode-specific logic:
 from __future__ import annotations
 
 import json
+import os
 import socket
 import subprocess
 import time
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Any, Callable, Type, Union
 
 from pydantic import BaseModel, ValidationError
+
+from ..provider_auth import apply_openrouter_env, ensure_openrouter_api_key
 
 # Tracks which port each project's OpenCode server is running on.
 # Key = resolved project directory path, Value = port number.
@@ -103,10 +106,14 @@ async def _ensure_server(options: dict[str, Any]) -> Any:
                 port = _find_free_port()
                 _SERVER_PORTS[requested_cwd] = port
 
+        env = dict(os.environ)
+        apply_openrouter_env(options.get("provider_id"), env)
+
         # Start OpenCode server as a background process
         subprocess.Popen(
             ["opencode", "serve", "--port", str(port), "--hostname", "127.0.0.1"],
             cwd=requested_cwd,
+            env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -140,6 +147,7 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
             f"OpenCode SDK requires dict options, got {type(options)}"
         )
 
+    ensure_openrouter_api_key(options.get("provider_id"))
     client = await _ensure_server(options)
 
     # Create a session and send the query

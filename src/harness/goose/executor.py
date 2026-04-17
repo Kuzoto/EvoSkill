@@ -41,6 +41,8 @@ from typing import Any, Callable, Type
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from ..provider_auth import apply_openrouter_env
+
 
 async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     """Execute a query by invoking the Goose CLI as an async subprocess.
@@ -100,6 +102,7 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
         # Build environment with provider/model overrides.
         # We copy os.environ so we never mutate the global process environment.
         env = dict(os.environ)
+        apply_openrouter_env(options.get("provider"), env)
         if options.get("provider"):
             env["GOOSE_PROVIDER"] = options["provider"]
         if options.get("model"):

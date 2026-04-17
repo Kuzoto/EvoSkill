@@ -19,6 +19,8 @@ from typing import Any, Callable, Type
 
 from pydantic import BaseModel, SecretStr, ValidationError
 
+from ..provider_auth import ensure_openrouter_api_key
+
 logger = logging.getLogger(__name__)
 _WARNED_ONCE = False
 
@@ -112,6 +114,8 @@ def _resolve_api_key(options: dict[str, Any]) -> SecretStr | None:
         value = os.environ.get("ANTHROPIC_API_KEY")
         if value:
             return SecretStr(value)
+    if provider_id == "openrouter":
+        return SecretStr(ensure_openrouter_api_key(provider_id))
     value = os.environ.get("LLM_API_KEY")
     if value:
         return SecretStr(value)
