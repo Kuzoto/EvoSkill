@@ -1,257 +1,291 @@
-"""OpenCode SDK execution, server management, and response parsing.
+"""OpenCode harness — server management, query execution, response parsing.
 
-This module handles all OpenCode-specific logic:
-    - Starting/reusing OpenCode servers (per-project port management)
-    - Sending queries via AsyncOpencode
-    - Parsing AssistantMessage into AgentTrace fields
+Uses raw httpx to talk to the opencode server (the Python SDK sends
+model/provider as flat fields which the server ignores; the correct
+format is a nested ``model: {providerID, modelID}`` object).
 """
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Callable, Type, Union
+from typing import Any, Callable, Type
 
+import httpx
 from pydantic import BaseModel, ValidationError
 
 from ..provider_auth import apply_openrouter_env, ensure_openrouter_api_key
 
-# Tracks which port each project's OpenCode server is running on.
-# Key = resolved project directory path, Value = port number.
-# Prevents port collisions when running multiple EvoSkill projects simultaneously.
+# ── module-level state ────────────────────────────────────────────────
 _SERVER_PORTS: dict[str, int] = {}
+_SERVER_PIDS: dict[str, int] = {}
+_SPAWNED_THIS_RUN: set[str] = set()
 
-# HTTP request timeout for OpenCode API calls (10 minutes).
-# Some treasury questions require reading large documents and take a while.
-_REQUEST_TIMEOUT_SECONDS = 600
+_TIMEOUT = 1800  # per-request HTTP timeout (30 min — opencode agents can take 15+ min on complex queries)
 
 
-# ---------------------------------------------------------------------------
-# Server lifecycle helpers
-# ---------------------------------------------------------------------------
+# ── provider auth ─────────────────────────────────────────────────────
+
+_PROVIDER_ENV_KEYS = {
+    "openrouter": ["OPENROUTER_API_KEY", "LLM_API_KEY"],
+    "anthropic": ["ANTHROPIC_API_KEY"],
+    "openai": ["OPENAI_API_KEY"],
+    "google": ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
+    "groq": ["GROQ_API_KEY"],
+    "mistral": ["MISTRAL_API_KEY"],
+    "together": ["TOGETHER_API_KEY"],
+    "deepseek": ["DEEPSEEK_API_KEY"],
+    "xai": ["XAI_API_KEY"],
+}
+
+
+def _push_provider_auth(base_url: str) -> None:
+    """Push all available API keys from env into the opencode server's auth store.
+
+    The opencode server reads credentials from its own auth store, not env vars.
+    This syncs any provider keys found in the environment so the server can
+    authenticate regardless of which provider the user configures.
+    """
+    for provider, env_vars in _PROVIDER_ENV_KEYS.items():
+        for var in env_vars:
+            key = os.environ.get(var)
+            if key:
+                try:
+                    httpx.put(
+                        f"{base_url}/auth/{provider}",
+                        json={"type": "api", "key": key},
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
+                break
+
+
+# ── server lifecycle ──────────────────────────────────────────────────
 
 def _find_free_port() -> int:
-    """Ask the OS for a random available port by binding to port 0."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
-async def _server_matches_project(client: Any, expected_cwd: str | None) -> bool:
-    """Check if a running OpenCode server is serving the expected project directory.
+def _resolve_key(cwd: str | Path | None) -> str:
+    return str(Path(cwd).resolve()) if cwd else ""
 
-    Returns True if the server's cwd matches expected_cwd, or if expected_cwd is None.
-    Returns False if the server is unreachable or serving a different directory.
-    """
-    app_api = getattr(client, "app", None)
-    if app_api is None or not hasattr(app_api, "get"):
-        return False
 
+def _kill_pid(pid: int) -> None:
     try:
-        app_info = await app_api.get()
+        os.kill(pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        return
+    for _ in range(10):
+        time.sleep(0.1)
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+    try:
+        os.kill(pid, signal.SIGKILL)
     except Exception:
-        return False
-
-    if not expected_cwd:
-        return True
-
-    # Handle both dict and object response formats from the OpenCode API
-    if isinstance(app_info, dict):
-        path_info = app_info.get("path", {})
-        directory = path_info.get("cwd")
-    else:
-        path_info = getattr(app_info, "path", None)
-        directory = getattr(path_info, "cwd", None)
-
-    if not directory:
-        return False
-
-    return Path(directory).resolve() == Path(expected_cwd).resolve()
+        pass
 
 
-async def _ensure_server(options: dict[str, Any]) -> Any:
-    """Ensure an OpenCode server is running for this project and return a client.
+def _kill_all_opencode_servers() -> None:
+    """Kill all opencode serve processes on this machine."""
+    try:
+        subprocess.run(
+            ["pkill", "-f", "opencode serve"],
+            capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass
 
-    Steps:
-        1. Resolve the project directory from options["cwd"]
-        2. Look up existing port for this project, default to 4096
-        3. Check if server at that port is serving the right project
-        4. If not, find a free port and start a new server
-        5. Return an AsyncOpencode client connected to the right port
+
+def shutdown_project_server(project_root: str | Path | None) -> None:
+    key = _resolve_key(project_root)
+    pid = _SERVER_PIDS.pop(key, None)
+    if pid is not None:
+        _kill_pid(pid)
+    _SERVER_PORTS.pop(key, None)
+    _SPAWNED_THIS_RUN.discard(key)
+
+
+def shutdown_all_servers() -> None:
+    for key in list(set(_SERVER_PORTS) | set(_SERVER_PIDS) | set(_SPAWNED_THIS_RUN)):
+        shutdown_project_server(key)
+
+
+def _wait_for_port(port: int, timeout: float = 15) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return
+        except OSError:
+            time.sleep(0.5)
+
+
+def _ensure_server(options: dict[str, Any]) -> str:
+    """Return ``http://127.0.0.1:<port>`` for a running opencode server.
+
+    First call per project per process kills ALL stale opencode servers,
+    then spawns a fresh one. Subsequent calls reuse the same server.
     """
-    from opencode_ai import AsyncOpencode
+    key = _resolve_key(options.get("cwd"))
 
-    requested_cwd = options.get("cwd")
-    if requested_cwd:
-        requested_cwd = str(Path(requested_cwd).resolve())
+    if key in _SPAWNED_THIS_RUN:
+        port = _SERVER_PORTS.get(key)
+        if port is not None:
+            return f"http://127.0.0.1:{port}"
 
-    # Look up if we already have a port for this project, default to 4096
-    port = _SERVER_PORTS.get(requested_cwd or "", 4096)
-    client = AsyncOpencode(
-        base_url=f"http://127.0.0.1:{port}",
-        timeout=_REQUEST_TIMEOUT_SECONDS,
+    # kill ALL opencode servers from previous runs
+    _kill_all_opencode_servers()
+    time.sleep(0.5)
+
+    port = _find_free_port()
+    env = dict(os.environ)
+    apply_openrouter_env(options.get("provider_id"), env)
+
+    proc = subprocess.Popen(
+        ["opencode", "serve", "--port", str(port), "--hostname", "127.0.0.1"],
+        cwd=options.get("cwd"),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
     )
 
-    # Check if the server at this port is actually serving our project.
-    # If not (wrong project, or server not running), start a new one.
-    if not await _server_matches_project(client, requested_cwd):
-        if requested_cwd:
-            port = _SERVER_PORTS.get(requested_cwd, port)
-            if port == 4096:
-                # Port 4096 might be taken by another project — find a free one
-                port = _find_free_port()
-                _SERVER_PORTS[requested_cwd] = port
+    _SERVER_PORTS[key] = port
+    _SERVER_PIDS[key] = proc.pid
+    _SPAWNED_THIS_RUN.add(key)
+    _wait_for_port(port)
 
-        env = dict(os.environ)
-        apply_openrouter_env(options.get("provider_id"), env)
-
-        # Start OpenCode server as a background process
-        subprocess.Popen(
-            ["opencode", "serve", "--port", str(port), "--hostname", "127.0.0.1"],
-            cwd=requested_cwd,
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        time.sleep(2)  # Give the server time to start
-        client = AsyncOpencode(
-            base_url=f"http://127.0.0.1:{port}",
-            timeout=_REQUEST_TIMEOUT_SECONDS,
-        )
-
-    return client
+    base_url = f"http://127.0.0.1:{port}"
+    _push_provider_auth(base_url)
+    return base_url
 
 
-# ---------------------------------------------------------------------------
-# Query execution
-# ---------------------------------------------------------------------------
+# ── query execution ──────────────────────────────────────────────────
 
 async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
-    """Execute a query via OpenCode SDK.
-
-    Args:
-        options: Dict with keys: system, tools, format, model_id, provider_id, cwd, mode
-        query: The question to send to the agent
-
-    Returns:
-        List containing a single AssistantMessage (wrapped in list for
-        consistency with Claude SDK path).
-    """
     if not isinstance(options, dict):
-        raise TypeError(
-            f"OpenCode SDK requires dict options, got {type(options)}"
-        )
+        raise TypeError(f"OpenCode executor requires dict options, got {type(options)}")
 
     ensure_openrouter_api_key(options.get("provider_id"))
-    client = await _ensure_server(options)
+    base_url = _ensure_server(options)
 
-    # Create a session and send the query
-    session = await client.session.create(extra_body={})
+    async with httpx.AsyncClient(base_url=base_url, timeout=_TIMEOUT) as client:
+        # 1. create session
+        r = await client.post("/session", json={})
+        r.raise_for_status()
+        session_id = r.json()["id"]
 
-    # Pass structured output format if configured
-    extra_body = {}
-    if "format" in options:
-        extra_body["format"] = options["format"]
+        # 2. send message (nested model object — required by the server)
+        body: dict[str, Any] = {
+            "parts": [{"type": "text", "text": query}],
+            "model": {
+                "providerID": options.get("provider_id", "anthropic"),
+                "modelID": options.get("model_id", "claude-sonnet-4-6"),
+            },
+        }
+        if options.get("system"):
+            body["system"] = options["system"]
+        if options.get("tools"):
+            body["tools"] = options["tools"]
+        if options.get("mode"):
+            body["mode"] = options["mode"]
+        if options.get("format"):
+            body["format"] = options["format"]
 
-    message = await client.session.chat(
-        id=session.id,
-        model_id=options.get("model_id", "zai-org/GLM-5"),
-        provider_id=options.get("provider_id", "togetherai"),
-        parts=[{"type": "text", "text": query}],
-        system=options.get("system"),
-        mode=options.get("mode", "build"),
-        tools=options.get("tools", {}),
-        extra_body=extra_body if extra_body else None,
-    )
+        r = await client.post(f"/session/{session_id}/message", json=body)
+        r.raise_for_status()
+        chat_info = r.json()
 
-    # Wrap in list for consistency with Claude SDK path
-    return [message]
+        # 3. fetch full messages (with parts + structured output)
+        r = await client.get(f"/session/{session_id}/message")
+        r.raise_for_status()
+        messages = r.json()
+
+    return [{"session_id": session_id, "chat_info": chat_info, "messages": messages}]
 
 
-# ---------------------------------------------------------------------------
-# Response parsing
-# ---------------------------------------------------------------------------
+# ── response parsing ─────────────────────────────────────────────────
 
 def parse_response(
     messages: list[Any],
     response_model: Type[BaseModel],
     get_options: Callable[[], Any],
 ) -> dict[str, Any]:
-    """Parse OpenCode SDK response into AgentTrace field values.
+    payload = messages[0]
+    all_msgs: list[dict] = payload.get("messages", [])
 
-    OpenCode returns a single AssistantMessage with:
-        .info dict → structured output, tokens, cost
-        .parts list → text content segments
-        .session_id → session identifier
+    # find last assistant message
+    assistant_info: dict = {}
+    assistant_parts: list[dict] = []
+    for msg in reversed(all_msgs):
+        info = msg.get("info", {})
+        if info.get("role") == "assistant":
+            assistant_info = info
+            assistant_parts = msg.get("parts", [])
+            break
 
-    Args:
-        messages: Single-item list containing the AssistantMessage
-        response_model: Pydantic model to validate structured output against
-        get_options: Callable to retrieve agent options (for model/tools metadata)
+    # extract text
+    result_text = "".join(
+        p.get("text", "") for p in assistant_parts if p.get("type") == "text"
+    )
 
-    Returns:
-        Dict of field values ready to pass to AgentTrace(**fields).
-    """
-    message = messages[0]
-
-    # Extract structured output — check both key names because
-    # different OpenCode versions use different keys
+    # structured output
     output = None
     parse_error = None
-    raw_structured_output = None
+    raw_structured = assistant_info.get("structured")
 
-    if hasattr(message, "info") and message.info:
-        raw_structured_output = message.info.get("structured_output")
-        if raw_structured_output is None:
-            raw_structured_output = message.info.get("structured")
-
-    if raw_structured_output is not None:
+    if raw_structured is not None:
         try:
-            output = response_model.model_validate(raw_structured_output)
-        except (ValidationError, json.JSONDecodeError, TypeError) as e:
-            parse_error = f"{type(e).__name__}: {str(e)}"
-    else:
-        parse_error = (
-            "No structured output returned (context limit likely exceeded)"
-        )
+            output = response_model.model_validate(raw_structured)
+        except (ValidationError, TypeError, ValueError) as e:
+            parse_error = f"{type(e).__name__}: {e}"
 
-    # Reconstruct the result text from message parts
-    result_text = ""
-    if hasattr(message, "parts"):
-        for part in message.parts:
-            if isinstance(part, dict) and part.get("type") == "text":
-                result_text += part.get("text", "")
+    # fallback: parse JSON from text (even if structured failed)
+    if output is None and result_text.strip():
+        text = result_text.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            lines = lines[1:] if lines[0].startswith("```") else lines
+            lines = lines[:-1] if lines and lines[-1].strip() == "```" else lines
+            text = "\n".join(lines).strip()
+        try:
+            parsed = json.loads(text)
+            output = response_model.model_validate(parsed)
+            raw_structured = parsed
+            parse_error = None
+        except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as e:
+            if parse_error is None:
+                parse_error = f"{type(e).__name__}: {e}"
 
-    # Extract cost and token usage from info dict
-    info = message.info if hasattr(message, "info") else {}
-    usage = info.get("tokens", {}) if info else {}
-    cost = info.get("cost", 0.0) if info else 0.0
+    if output is None and parse_error is None:
+        parse_error = "No structured output returned (context limit likely exceeded)"
 
-    # OpenCode doesn't return model/tools in the response,
-    # so we pull them from the options we sent
-    options = get_options()
-    model_name = (
-        options.get("model_id", "unknown")
-        if isinstance(options, dict)
-        else "unknown"
-    )
-    tools = (
-        list(options.get("tools", {}).keys())
-        if isinstance(options, dict) and options.get("tools")
-        else []
-    )
+    # cost / usage
+    cost = assistant_info.get("cost", 0.0) or 0.0
+    usage = assistant_info.get("tokens", {}) or {}
 
-    # Note: duration_ms=0 and num_turns=1 because OpenCode
-    # doesn't report these metrics
+    # model / tools from options
+    opts = get_options()
+    model = opts.get("model", "unknown") if isinstance(opts, dict) else "unknown"
+    tools = list(opts.get("tools", {}).keys()) if isinstance(opts, dict) and opts.get("tools") else []
+
+    session_id = payload.get("session_id", "unknown")
+
     return dict(
-        uuid=message.session_id or "unknown",
-        session_id=message.session_id or "unknown",
-        model=model_name,
+        uuid=session_id,
+        session_id=session_id,
+        model=model,
         tools=tools,
         duration_ms=0,
         total_cost_usd=cost,
@@ -261,6 +295,9 @@ def parse_response(
         is_error=parse_error is not None,
         output=output,
         parse_error=parse_error,
-        raw_structured_output=raw_structured_output,
+        raw_structured_output=raw_structured,
         messages=messages,
     )
+
+
+atexit.register(shutdown_all_servers)
