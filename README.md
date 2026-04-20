@@ -151,7 +151,6 @@ brew install --cask claude-code    # Claude Code
 brew install opencode              # OpenCode (v1.4.0+)
 brew install --cask codex          # Codex CLI
 brew install block-goose-cli       # Goose (v1.25.0+)
-# OpenHands requires Docker Desktop: https://www.docker.com/products/docker-desktop/
 ```
 
 **Common auth setup:**
