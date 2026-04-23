@@ -186,13 +186,33 @@ def make_scorer(cfg: ProjectConfig):
             try:
                 text = await call_llm(provider, model, prompt)
                 return float(text.strip())
-            except (ValueError, Exception):
+            except ValueError:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "LLM scorer: could not parse response as float: %r", text
+                )
+                return 0.0
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).error(
+                    "LLM scorer failed (%s: %s) — returning 0.0",
+                    type(exc).__name__, exc,
+                )
                 return 0.0
 
         def llm_scorer(question: str, predicted: str, ground_truth: str) -> float:
-            return asyncio.get_event_loop().run_until_complete(
-                llm_score(question, predicted, ground_truth)
-            )
+            coro = llm_score(question, predicted, ground_truth)
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                # No running loop — safe to use asyncio.run()
+                return asyncio.run(coro)
+            else:
+                # Inside a running loop (e.g. SelfImprovingLoop) —
+                # run in a separate thread with its own event loop
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    return pool.submit(asyncio.run, coro).result()
 
         return llm_scorer
 
@@ -200,9 +220,24 @@ def make_scorer(cfg: ProjectConfig):
         import shlex
         import subprocess
 
+        if not cfg.scorer.command:
+            raise ValueError(
+                "scorer.type is 'script' but scorer.command is not set in config.toml"
+            )
+
         def script_scorer(question: str, predicted: str, ground_truth: str) -> float:
-            cmd = cfg.scorer.command.format(predicted=predicted, expected=ground_truth)
-            result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
+            # Use Template-style substitution to avoid KeyError on { } in answers
+            cmd = cfg.scorer.command.replace("{predicted}", predicted).replace("{expected}", ground_truth)
+            try:
+                result = subprocess.run(
+                    shlex.split(cmd), capture_output=True, text=True, timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Script scorer timed out (30s): %s", cmd[:120],
+                )
+                return 0.0
             try:
                 return float(result.stdout.strip())
             except ValueError:
