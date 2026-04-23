@@ -13,7 +13,7 @@
 
 <b>Supercharge your coding agents with EvoSkill, an agent-agnostic toolkit for automatically creating and improving AI skills, compatible with Claude Code, OpenCode, OpenHands, Goose, and more.</b>
 
-<b>EvoSkill</b> uses <b>[GEPA](https://github.com/sentient-agi/gepa-plus)/[DSPy](https://github.com/stanfordnlp/dspy)-style self-improvement algorithms</b> that identify agent failure patterns, propose skill or prompt improvements, evaluate the changes, and keep the best-performing variants, similar to [<b>Karpathy's autoresearch</b>](https://github.com/karpathy/autoresearch).
+<b>EvoSkill</b> significantly extends the feedback-driven idea of <b>[GEPA](https://github.com/sentient-agi/gepa-plus)</b> from single-file optimization to complete agent evolution. Instead of only revising one prompt in place like GEPA, EvoSkill proposes multiple skill or prompt mutations jointly, evaluates new variants on held-out data, and has each iteration produce an entirely new agent program.
 
 <p align="center">
   <img src="./assets/examples.png" alt="EvoSkill Architecture" style="width: 75%;">
@@ -40,22 +40,22 @@ Install into <b>any coding agent</b> in seconds, and supercharge it with <b>AI-c
     <tr>
       <td><a href="https://opencode.ai/">OpenCode</a></td>
       <td>✅</td>
-      <td></td>
+      <td>CLI v1.4.0+ required (structured output support)</td>
     </tr>
     <tr>
       <td><a href="https://github.com/OpenHands/OpenHands">OpenHands</a></td>
-      <td>🛠️</td>
-      <td></td>
+      <td>✅</td>
+      <td>No native structured output; uses fallback JSON extraction</td>
     </tr>
     <tr>
       <td><a href="https://github.com/block/goose">Goose</a></td>
-      <td>🛠️</td>
-      <td></td>
+      <td>✅</td>
+      <td>CLI v1.25.0+ required (skill discovery via summon extension)</td>
     </tr>
     <tr>
-      <td><a href="https://github.com/block/goose">Codex CLI</a></td>
-      <td>🛠️</td>
-      <td></td>
+      <td><a href="https://openai.com/index/introducing-codex/">Codex CLI</a></td>
+      <td>✅</td>
+      <td>Skill discovery via .agents/skills/ symlink</td>
     </tr>
   </tbody>
 </table>   
@@ -139,24 +139,34 @@ Install into <b>any coding agent</b> in seconds, and supercharge it with <b>AI-c
 ```bash
 # Using uv (recommended)
 uv sync
-source .venv/bin/activate
-evoskill --help
 
 # Or using pip
 pip install -e .
 ```
 
-If you prefer not to activate the environment, you can also run the CLI with:
+**Agent CLI (install whichever harness you plan to use):**
 
 ```bash
-uv run evoskill --help
+brew install --cask claude-code    # Claude Code
+brew install opencode              # OpenCode (v1.4.0+)
+brew install --cask codex          # Codex CLI
+brew install block-goose-cli       # Goose (v1.25.0+)
 ```
 
-**API key:**
+**Common auth setup:**
 
 ```bash
+# Anthropic (Claude Code harness)
 export ANTHROPIC_API_KEY=your-key-here
+
+# OpenAI (Codex harness)
+export OPENAI_API_KEY=your-key-here
+
+# OpenRouter (OpenCode / Goose / OpenHands harnesses)
+export OPENROUTER_API_KEY=your-key-here
 ```
+
+OpenRouter-backed evolution runs also accept `LLM_API_KEY`, but `OPENROUTER_API_KEY` is the preferred env var.
 
 ---
 
@@ -297,8 +307,8 @@ Deletes all `program/*` branches, `frontier/*` tags, the loop checkpoint, and fe
 
 ```toml
 [harness]
-name = "claude"        # "claude" or "opencode"
-model = "sonnet"       # model alias or full model ID (e.g. "claude-sonnet-4-6")
+name = "claude"        # "claude", "opencode", "codex", "goose", or "openhands"
+model = "sonnet"       # Claude alias, Codex model name, or provider/model for OpenCode/Goose/OpenHands
 data_dirs = []         # extra directories the agent can read
 
 [evolution]
@@ -320,6 +330,38 @@ val_ratio = 0.12
 type = "multi_tolerance"     # see scorer types below
 ```
 
+**Common evolution model setups:**
+
+Anthropic:
+
+```toml
+[harness]
+name = "claude"
+model = "claude-sonnet-4-6"
+```
+
+OpenAI:
+
+```toml
+[harness]
+name = "codex"
+model = "gpt-5"
+```
+
+OpenRouter:
+
+```toml
+[harness]
+name = "opencode"
+model = "openrouter/openai/gpt-5-mini"
+```
+
+Notes:
+- `claude` is Anthropic-only.
+- `codex` uses bare OpenAI model names such as `gpt-5`, `o3`, or `codex-mini-latest`.
+- `opencode`, `goose`, and `openhands` are multi-provider harnesses and can also use Claude and OpenAI models.
+- `opencode`, `goose`, and `openhands` accept `provider/model` strings such as `anthropic/claude-sonnet-4-6`, `openai/gpt-5`, or `openrouter/openai/gpt-5-mini`.
+
 ### Scorer types
 
 | Type | Description |
@@ -336,8 +378,10 @@ type = "multi_tolerance"     # see scorer types below
 type = "llm"
 rubric = "Award 1.0 if the answer is numerically correct within 5%, 0.0 otherwise."
 model = "claude-sonnet-4-6"   # defaults to claude-sonnet-4-6
-provider = "anthropic"        # "anthropic", "openai", or "google"
+provider = "anthropic"        # "anthropic", "openai", "google", or "openrouter"
 ```
+
+For OpenRouter-backed scoring, set `provider = "openrouter"` and use an OpenRouter model ID such as `openai/gpt-5-mini` or `google/gemini-2.5-flash`. Authentication uses `OPENROUTER_API_KEY` and falls back to `LLM_API_KEY` if needed.
 
 **Script scorer options:**
 

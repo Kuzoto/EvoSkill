@@ -9,8 +9,11 @@ description = "self-improving agent via skills"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "opencode-ai>=0.0.26",
+    "opencode-ai>=0.1.0a36",
+    "openai-codex-sdk>=0.1.11",
     "claude-agent-sdk>=0.1.16",
+    "openhands-sdk>=1.16.1",
+    "openhands-tools>=1.16.1",
     "click>=8.1.8",
     "dspy>=3.0.4",
     "ipykernel>=7.1.0",
@@ -18,6 +21,7 @@ dependencies = [
     "nbformat>=5.10.4",
     "notebook>=7.5.3",
     "pandas>=2.3.3",
+    "pip>=26.0.1",
     "plotly>=6.5.2",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
@@ -34,5 +38,36 @@ dependencies = [
 [project.scripts]
 evoskill = "src.cli.main:cli"
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-cov>=7.1.0",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/cli/*",
+    "src/loop/runner.py",
+    "src/registry/manager.py",
+    "src/evaluation/eval_full.py",
+    "src/evaluation/evaluate.py",
+    "src/evaluation/dabstep_scorer.py",
+    "src/evaluation/sealqa_scorer.py",
+    "src/evaluation/livecodebench/*",
+    "src/api/eval_runner.py",
+    "src/api/evoskill.py",
+    "src/harness/_claude_executor.py",
+    "src/harness/_opencode_executor.py",
+    "src/agent_profiles/*",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

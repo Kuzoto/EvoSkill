@@ -10,10 +10,15 @@ treasury_bulletins_parsed/
 *.log
 # Claude Code config (ignore all except skills folder)
 .claude/*
+!.claude/program.yaml
 !.claude/skills/
 results/
 DABstep-data/
 .evoskill/
+
+# Auto-generated configs (contain local paths)
+opencode.json
+config.json
 
 # Virtual environments
 .venv
@@ -25,5 +30,6 @@ DABstep-data/
 .cache/
 *.txt
 output.txt
-tests/
 scratch/
+
+CLAUDE.md

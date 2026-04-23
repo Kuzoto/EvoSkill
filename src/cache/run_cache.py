@@ -19,7 +19,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from src.agent_profiles.base import AgentTrace
+from src.harness import AgentTrace
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,11 @@ class RunCache:
     Usage:
         cache = RunCache()
 
-        # Check cache
-        trace = cache.get(question)
+        # Check cache (sdk + model are required keyword args — they're part of the key)
+        trace = cache.get(question, sdk="claude", model="claude-opus-4-6")
         if trace is None:
             trace = await agent.run(question)
-            cache.set(question, trace)
+            cache.set(question, trace, sdk="claude", model="claude-opus-4-6")
     """
 
     def __init__(self, config: CacheConfig | None = None):
@@ -153,23 +153,29 @@ class RunCache:
         """Get the cache directory for a specific tree hash."""
         return self.config.cache_dir / tree_hash[: self.config.hash_length]
 
-    def _get_cache_path(self, tree_hash: str, question: str) -> Path:
-        """Get the cache file path for a tree hash + question."""
+    def _get_cache_path(self, tree_hash: str, question: str, sdk: str, model: str) -> Path:
+        """Get the cache file path for a tree hash + question + sdk + model."""
         tree_dir = self._get_cache_dir_for_tree(tree_hash)
-        question_hash = self._compute_question_hash(question)[: self.config.hash_length]
+        keyed = f"{question.strip()}|sdk={sdk}|model={model}"
+        question_hash = hashlib.sha256(keyed.encode("utf-8")).hexdigest()[: self.config.hash_length]
         return tree_dir / f"{question_hash}.json"
 
     def get(
         self,
         question: str,
         response_model: type[T] | None = None,
+        *,
+        sdk: str,
+        model: str,
     ) -> AgentTrace[T] | None:
         """
-        Retrieve cached trace for current .claude/ content + question.
+        Retrieve cached trace for current .claude/ content + question + sdk + model.
 
         Args:
             question: The question/query string
             response_model: Optional Pydantic model for output validation
+            sdk: Active harness SDK (e.g. "claude", "opencode") — part of cache key
+            model: Model identifier — part of cache key
 
         Returns:
             AgentTrace if cache hit, None if miss or disabled
@@ -183,7 +189,7 @@ class RunCache:
             logger.debug(f"Cache get failed to compute tree hash: {e}")
             return None
 
-        cache_path = self._get_cache_path(tree_hash, question)
+        cache_path = self._get_cache_path(tree_hash, question, sdk, model)
 
         if not cache_path.exists():
             return None
@@ -212,13 +218,18 @@ class RunCache:
         self,
         question: str,
         trace: AgentTrace[Any],
+        *,
+        sdk: str,
+        model: str,
     ) -> None:
         """
-        Cache a trace for current .claude/ content + question.
+        Cache a trace for current .claude/ content + question + sdk + model.
 
         Args:
             question: The question/query string
             trace: The AgentTrace to cache
+            sdk: Active harness SDK (e.g. "claude", "opencode") — part of cache key
+            model: Model identifier — part of cache key
         """
         if not self.config.enabled:
             return
@@ -232,7 +243,7 @@ class RunCache:
         tree_dir = self._get_cache_dir_for_tree(tree_hash)
         tree_dir.mkdir(parents=True, exist_ok=True)
 
-        cache_path = self._get_cache_path(tree_hash, question)
+        cache_path = self._get_cache_path(tree_hash, question, sdk, model)
 
         # Serialize trace
         trace_dict = trace.model_dump()
@@ -250,10 +261,12 @@ class RunCache:
             created_at=datetime.now().isoformat(),
             cache_key={
                 "tree_hash": tree_hash[: self.config.hash_length],
-                "question_hash": self._compute_question_hash(question)[
-                    : self.config.hash_length
-                ],
+                "question_hash": hashlib.sha256(
+                    f"{question.strip()}|sdk={sdk}|model={model}".encode("utf-8")
+                ).hexdigest()[: self.config.hash_length],
                 "question": question,
+                "sdk": sdk,
+                "model": model,
             },
             trace=trace_dict,
         )

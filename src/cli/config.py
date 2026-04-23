@@ -7,14 +7,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from src.harness.model_aliases import (
+    HarnessName,
+    default_model_for_harness,
+    normalize_harness_model,
+)
+
 EVOSKILL_DIR = '.evoskill'
 
 
 @dataclass
 class HarnessConfig:
-    name: Literal['claude', 'opencode'] = 'claude'
-    model: str | None = None
+    name: HarnessName = 'claude'
+    model: str | None = field(default_factory=lambda: default_model_for_harness("claude"))
     data_dirs: list[str] = field(default_factory=list)
+    timeout_seconds: int = 1200
+    max_retries: int = 3
 
 
 @dataclass
@@ -103,7 +111,10 @@ def load_config(start: Path | None = None) -> ProjectConfig:
     with open(config_path, 'rb') as f:
         raw = tomllib.load(f)
 
-    harness = HarnessConfig(**raw.get('harness', {}))
+    harness_raw = dict(raw.get('harness', {}))
+    harness_name = harness_raw.get('name', 'claude')
+    harness_raw['model'] = normalize_harness_model(harness_name, harness_raw.get('model'))
+    harness = HarnessConfig(**harness_raw)
     evolution = EvolutionConfig(**raw.get('evolution', {}))
     dataset = DatasetConfig(**raw.get('dataset', {}))
     scorer = ScorerConfig(**raw.get('scorer', {}))

@@ -4,12 +4,20 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 from tqdm.asyncio import tqdm_asyncio
 
-from src.agent_profiles.base import Agent, AgentTrace
+from src.harness import Agent, AgentTrace
+from src.harness.sdk_config import get_sdk
 
 if TYPE_CHECKING:
     from src.cache import RunCache
 
 T = TypeVar("T")
+
+
+def _extract_model(options) -> str:
+    """Best-effort model id extraction from either dict or ClaudeAgentOptions."""
+    if isinstance(options, dict):
+        return str(options.get("model", "") or "")
+    return str(getattr(options, "model", "") or "")
 
 
 @dataclass
@@ -47,15 +55,22 @@ async def evaluate_agent_parallel(
                 async with asyncio.timeout(1020):  # 17-minute hard limit per eval
                     # Check cache first
                     trace = None
+                    sdk = get_sdk()
+                    model = _extract_model(agent._get_options())
                     if cache is not None:
-                        trace = cache.get(question, agent.response_model)
+                        trace = cache.get(
+                            question,
+                            agent.response_model,
+                            sdk=sdk,
+                            model=model,
+                        )
 
                     # Cache miss - run agent
                     if trace is None:
                         trace = await agent.run(question)
                         # Store in cache
                         if cache is not None:
-                            cache.set(question, trace)
+                            cache.set(question, trace, sdk=sdk, model=model)
 
             except asyncio.TimeoutError:
                 print(f"Eval timed out (17min) for: {question[:50]}...")
