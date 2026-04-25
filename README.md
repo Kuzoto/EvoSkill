@@ -184,19 +184,21 @@ Run `evoskill init` inside any git repository:
 $ evoskill init
 
   EvoSkill — Project Setup
-  Which harness? › claude
-  Evolution mode? › skill_only — agent learns new skills (recommended)
-  Dataset path? › /absolute/path/to/questions.csv
-  Question column name? › question
-  Ground truth column name? › answer
-  Category column name? (leave blank if none) ›
-  Additional folders the agent can interact with? › /absolute/path/to/data_dir
+
+  Which agent runtime? › claude
+  Absolute path to dataset CSV? › /path/to/questions.csv
+  Question/input column name? › question
+  Answer column name? › answer
+  Category column name? ›
+  Additional data directories? ›
+  How do you want to run EvoSkill? › Local
 ```
 
 This creates `.evoskill/config.toml` and `.evoskill/task.md`.
 
-- **Dataset path** — absolute path to your CSV file containing questions and ground-truth answers.
-- **Data dirs** — absolute paths to any additional directories the agent needs access to during runs (e.g. reference documents, databases). Comma-separated if multiple.
+- **Dataset path** — absolute path to your CSV with questions and ground-truth answers.
+- **Data dirs** — absolute paths to directories the agent needs (e.g. reference documents). Comma-separated if multiple.
+- **Execution mode** — Local (direct), Docker (containerized, supports remote via `DOCKER_HOST`), or Daytona (managed cloud sandbox).
 
 ### 2. Describe your task
 
