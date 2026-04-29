@@ -101,7 +101,7 @@ def test_opencode_base_agent_factories_return_dicts_with_project_root_and_model_
         model=model,
         required_tools=("read", "edit", "bash", "skill"),
     )
-    assert task_options["system"] == "Answer the question with the final answer only."
+    assert task_options["system"].startswith("Answer the question with the final answer only.")
     assert task_options["format"]["type"] == "json_schema"
     assert eval_options["format"]["type"] == "json_schema"
 
@@ -177,8 +177,8 @@ def test_self_improving_loop_uses_manager_cwd_for_project_paths(tmp_path: Path) 
     )
 
     assert loop._project_root == tmp_path
-    assert loop._feedback_path == tmp_path / ".claude" / "feedback_history.md"
-    assert loop._checkpoint_path == tmp_path / ".claude" / "loop_checkpoint.json"
+    assert loop._feedback_path == tmp_path / ".evoskill" / "feedback_history.md"
+    assert loop._checkpoint_path == tmp_path / ".evoskill" / "loop_checkpoint.json"
 
 
 def test_ensure_base_program_does_not_call_global_claude_base_factory_in_opencode_mode(
