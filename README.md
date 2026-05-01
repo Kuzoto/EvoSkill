@@ -396,7 +396,7 @@ model = "openrouter/openai/gpt-5-mini"
 
 Notes:
 - `claude` is Anthropic-only.
-- `codex` uses bare OpenAI model names such as `gpt-5`, `o3`, or `codex-mini-latest`.
+- `codex` uses bare OpenAI model names such as `gpt-5`, `o3`, or `gpt-5.1-codex-mini`.
 - `opencode`, `goose`, and `openhands` are multi-provider harnesses and can also use Claude and OpenAI models.
 - `opencode`, `goose`, and `openhands` accept `provider/model` strings such as `anthropic/claude-sonnet-4-6`, `openai/gpt-5`, or `openrouter/openai/gpt-5-mini`.
 

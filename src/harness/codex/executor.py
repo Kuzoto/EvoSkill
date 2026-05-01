@@ -49,7 +49,7 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
         options: Dict built by build_codex_options() with keys:
             - system: system prompt text
             - output_schema: JSON schema dict for structured output
-            - model: model name (e.g., "codex-mini-latest")
+            - model: model name (e.g., "gpt-5.1-codex-mini")
             - working_directory: path where the agent operates
             - tools: tool names (metadata only, not sent to SDK)
             - data_dirs: extra data directory paths
@@ -60,7 +60,7 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
         Wrapped in a list for consistency with Claude ([messages])
         and OpenCode ([message]) executors.
     """
-    ensure_provider_api_key("openai")
+    api_key = ensure_provider_api_key("openai")
 
     # Lazy import — only fails if someone actually uses the codex harness
     # without installing the SDK. Same pattern as claude/executor.py and
@@ -80,7 +80,7 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     # Create a new Codex instance and start a thread.
     # Unlike OpenCode (which manages a persistent HTTP server), Codex
     # handles its own process lifecycle internally.
-    codex = Codex()
+    codex = Codex({"api_key": api_key})
     thread_opts: dict[str, Any] = {
         "working_directory": options.get("working_directory", "."),
     }

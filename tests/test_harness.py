@@ -726,13 +726,13 @@ class TestCodexOptions:
             schema={"type": "object"},
             tools=["Read", "Bash"],
             project_root=tmp_path,
-            model="codex-mini-latest",
+            model="gpt-5.1-codex-mini",
         )
 
         assert result["system"] == "You are helpful."
         assert result["output_schema"]["type"] == "object"
         assert result["output_schema"]["additionalProperties"] is False
-        assert result["model"] == "codex-mini-latest"
+        assert result["model"] == "gpt-5.1-codex-mini"
         assert result["working_directory"] == str(tmp_path.resolve())
         assert "Read" in result["tools"]
         assert "Bash" in result["tools"]
@@ -812,7 +812,7 @@ def _make_codex_turn(final_response=None, turn_id="turn-abc", thread_id="thread-
     )
 
 
-def _make_codex_get_options(model="codex-mini-latest", tools=None):
+def _make_codex_get_options(model="gpt-5.1-codex-mini", tools=None):
     return lambda: {
         "model": model,
         "tools": tools or ["Read", "Bash"],
@@ -942,8 +942,8 @@ class TestCodexExecuteQuery:
                 return types.SimpleNamespace(final_response='{"final_answer":"ok","reasoning":"r"}')
 
         class FakeCodex:
-            def __init__(self):
-                captured["constructed"] = True
+            def __init__(self, options=None):
+                captured["codex_options"] = options
 
             def start_thread(self, thread_opts):
                 captured["thread_opts"] = thread_opts
@@ -961,7 +961,7 @@ class TestCodexExecuteQuery:
         options = {
             "system": "System instructions.",
             "output_schema": {"type": "object"},
-            "model": "codex-mini-latest",
+            "model": "gpt-5.1-codex-mini",
             "working_directory": str(tmp_path),
             "data_dirs": [str(data_dir)],
         }
@@ -969,9 +969,10 @@ class TestCodexExecuteQuery:
         result = asyncio.run(execute_query(options, "Answer this."))
 
         assert result[0].final_response
+        assert captured["codex_options"] == {"api_key": "sk-test"}
         assert captured["thread_opts"] == {
             "working_directory": str(tmp_path),
-            "model": "codex-mini-latest",
+            "model": "gpt-5.1-codex-mini",
             "additional_directories": [str(data_dir)],
         }
         assert captured["run_opts"] == {"output_schema": {"type": "object"}}
