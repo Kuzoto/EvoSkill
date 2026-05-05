@@ -6,10 +6,8 @@
 #   docker build -t evoskill .
 #   evoskill run --docker
 #
-# Daytona:
-#   docker build -t evoskill .
-#   docker tag evoskill <your-registry>/evoskill:latest
-#   docker push <your-registry>/evoskill:latest
+# Daytona (cross-compile for x86 if on Apple Silicon):
+#   docker buildx build --platform linux/amd64 -t <your-registry>/evoskill:latest --push .
 #   # Set image = "<your-registry>/evoskill:latest" in .evoskill/config.toml
 
 FROM python:3.12-slim
