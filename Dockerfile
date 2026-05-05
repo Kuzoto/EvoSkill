@@ -16,7 +16,6 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         curl \
-        build-essential \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -55,6 +54,7 @@ RUN pip install --no-cache-dir \
     "pyyaml>=6.0" \
     "questionary>=2.1.1" \
     "tqdm>=4.60.0" \
+    "httpx>=0.23.0" \
     "hatchling" \
     "daytona>=0.1.0"
 
