@@ -1,7 +1,7 @@
 """Helper functions for the self-improving loop."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from src.harness.opencode.skill_utils import (
     ensure_skill_frontmatter,
@@ -13,6 +13,33 @@ if TYPE_CHECKING:
     from src.schemas import ProposerResponse, SkillProposerResponse, PromptProposerResponse
 
 
+def extract_tool_usage(trace: "AgentTrace") -> dict[str, Any]:
+    """Extract tool/skill usage from an AgentTrace's messages payload."""
+    tools_used: set[str] = set()
+    skills_invoked: list[str] = []
+
+    if not trace.messages:
+        return {"tools_used": [], "skills_invoked": []}
+
+    payload = trace.messages[0] if trace.messages else {}
+    for msg in payload.get("messages", []):
+        for part in msg.get("parts", []):
+            if part.get("type") == "tool":
+                tool_name = part.get("tool", "")
+                if tool_name == "StructuredOutput":
+                    continue
+                tools_used.add(tool_name)
+                if tool_name == "skill":
+                    skill_name = part.get("state", {}).get("input", {}).get("name", "")
+                    if skill_name:
+                        skills_invoked.append(skill_name)
+
+    return {
+        "tools_used": sorted(tools_used),
+        "skills_invoked": skills_invoked,
+    }
+
+
 def build_proposer_query(
     traces_with_answers: list[tuple["AgentTrace", str, str, str]],
     feedback_history: str,
@@ -20,6 +47,8 @@ def build_proposer_query(
     truncation_level: int = 0,
     task_constraints: str = "",
     project_root: str | Path | None = None,
+    skills_invoked: list[str] | None = None,
+    tools_used: list[str] | None = None,
 ) -> str:
     """Build the query for the proposer agent from multiple failure traces.
 
@@ -92,9 +121,27 @@ Ground Truth: {ground_truth}
 
     constraints_section = f"\n## Task Constraints\n{task_constraints}\n" if task_constraints else ""
 
+    # Build skill usage section from last eval
+    skill_usage_section = ""
+    if skills_invoked is not None:
+        if skills_invoked:
+            from collections import Counter
+            counts = Counter(skills_invoked)
+            invoked_str = ", ".join(f"{name} ({n}x)" for name, n in counts.most_common())
+        else:
+            invoked_str = "None"
+        tools_str = ", ".join(tools_used) if tools_used else "None"
+        skill_usage_section = f"""
+## Skill Usage (from last evaluation)
+Available skills: {', '.join(existing_skills) if existing_skills else 'None'}
+Skills actually invoked during eval: {invoked_str}
+Tools used: {tools_str}
+NOTE: If a skill exists but is never invoked, the eval model does not find it useful. Consider editing the skill to be more discoverable or relevant, or ensuring the system prompt encourages skill use.
+"""
+
     return f"""## Existing Skills (check before proposing new ones)
 {skills_list}
-{constraints_section}
+{skill_usage_section}{constraints_section}
 ## Previous Attempts Feedback
 {feedback_history}
 
@@ -157,6 +204,8 @@ def append_feedback(
     score: float | None = None,
     parent_score: float | None = None,
     active_skills: list[str] | None = None,
+    skills_invoked: list[str] | None = None,
+    tools_used: list[str] | None = None,
     failure_category: str | None = None,
     root_cause: str | None = None,
 ) -> None:
@@ -171,6 +220,8 @@ def append_feedback(
         score: The score achieved after applying this proposal.
         parent_score: The parent's score before this proposal.
         active_skills: List of skills that were active during evaluation.
+        skills_invoked: Skills actually called via the skill tool during eval.
+        tools_used: Tools used during eval (websearch, grep, etc.).
         failure_category: Category of failure (e.g., "methodology", "formatting").
         root_cause: Brief description of root cause.
     """
@@ -186,6 +237,16 @@ def append_feedback(
     diagnostic_section = ""
     if active_skills:
         diagnostic_section += f"\n**Active Skills**: {', '.join(active_skills)}"
+    if skills_invoked is not None:
+        if skills_invoked:
+            from collections import Counter
+            counts = Counter(skills_invoked)
+            parts = [f"{name} ({n}x)" for name, n in counts.most_common()]
+            diagnostic_section += f"\n**Skills Invoked**: {', '.join(parts)}"
+        else:
+            diagnostic_section += "\n**Skills Invoked**: None"
+    if tools_used:
+        diagnostic_section += f"\n**Tools Used**: {', '.join(tools_used)}"
     if failure_category:
         diagnostic_section += f"\n**Failure Category**: {failure_category}"
     if root_cause:

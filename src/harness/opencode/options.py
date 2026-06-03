@@ -133,6 +133,17 @@ def build_opencode_options(
             f"{dirs_note}"
         )
 
+    system_with_dirs += (
+        "\n\n"
+        "Before answering, use the brainstorming skill to plan your approach."
+        "\n\n"
+        "Web search: Use the built-in websearch tool first. "
+        "If it returns a rate limit or 429 error, fall back to the backup search via bash:\n"
+        "  python3 scripts/websearch.py \"your query\"\n"
+        "This returns a JSON array of {title, url, snippet} results. "
+        "Use these URLs with webfetch to get full page content."
+    )
+
     return {
         "system": system_with_dirs,
         "format": {

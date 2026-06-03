@@ -71,6 +71,7 @@ from .helpers import (
     append_feedback,
     read_feedback_history,
     update_prompt_file,
+    extract_tool_usage,
 )
 
 
@@ -305,6 +306,16 @@ class SelfImprovingLoop:
             ])
             self._iter_cost += sum(t.total_cost_usd for t in traces)
 
+            # Extract tool/skill usage from test sample traces
+            sample_tools: set[str] = set()
+            sample_skills: list[str] = []
+            for t in traces:
+                usage = extract_tool_usage(t)
+                sample_tools.update(usage["tools_used"])
+                sample_skills.extend(usage["skills_invoked"])
+            self._last_sample_tools = sorted(sample_tools)
+            self._last_sample_skills = sample_skills
+
             # Collect failures
             failures: list[tuple[AgentTrace, str, str, str]] = []  # (trace, agent_answer, ground_truth, category)
             for trace, (question, answer, category) in zip(traces, test_samples):
@@ -346,7 +357,17 @@ class SelfImprovingLoop:
 
                 # Evaluate child
                 _log("", f"  -> Evaluating {child_name}...")
-                child_score = await self._evaluate(self.val_data)  # accumulates to self._iter_cost
+                self._restart_opencode_server()
+                child_score, eval_results = await self._evaluate(self.val_data)  # accumulates to self._iter_cost
+
+                # Extract tool/skill usage from eval results
+                all_tools: set[str] = set()
+                all_skills_invoked: list[str] = []
+                for result in eval_results:
+                    if result.trace:
+                        usage = extract_tool_usage(result.trace)
+                        all_tools.update(usage["tools_used"])
+                        all_skills_invoked.extend(usage["skills_invoked"])
 
                 # Update frontier or discard
                 added = self.manager.update_frontier(
@@ -384,6 +405,8 @@ class SelfImprovingLoop:
                     score=child_score,
                     parent_score=parent_score,
                     active_skills=active_skills,
+                    skills_invoked=all_skills_invoked,
+                    tools_used=sorted(all_tools),
                 )
 
             # Check early stopping
@@ -431,9 +454,10 @@ class SelfImprovingLoop:
 
         # Evaluate and add base to frontier
         self.manager.switch_to("base")
+        self._restart_opencode_server()
         _log("", f"  -> Evaluating on {len(self.val_data)} samples...")
         self._iter_cost = 0.0
-        base_score = await self._evaluate(self.val_data)
+        base_score, _ = await self._evaluate(self.val_data)
         self._total_cost += self._iter_cost
         self.manager.update_frontier(
             "base", base_score, max_size=self.config.frontier_size
@@ -443,14 +467,14 @@ class SelfImprovingLoop:
         _log("COST", f"Base eval cost: ${self._iter_cost:.4f} | Total: ${self._total_cost:.4f}")
         self._emit("baseline", score=base_score, n_skills=len(self._get_active_skills()))
 
-    async def _evaluate(self, data: list[tuple[str, str, str]]) -> float:
+    async def _evaluate(self, data: list[tuple[str, str, str]]) -> tuple[float, list]:
         """Evaluate base agent on data.
 
         Args:
             data: List of (question, answer, category) tuples.
 
         Returns:
-            Accuracy score (0.0 to 1.0).
+            Tuple of (accuracy score 0.0-1.0, list of EvalResult).
         """
         # Convert to (question, answer) format for evaluate_agent_parallel
         qa_data = [(q, a) for q, a, _ in data]
@@ -469,7 +493,7 @@ class SelfImprovingLoop:
                 result.trace.output.final_answer,
                 result.ground_truth,
             )
-        return score / len(results)
+        return score / len(results), results
 
     async def _mutate(
         self,
@@ -496,7 +520,12 @@ class SelfImprovingLoop:
         evolution_mode = self.config.evolution_mode
         _log("", f"  -> Running {evolution_mode.replace('_only', '')} proposer with {len(failures)} failures...")
         feedback_history = read_feedback_history(self._feedback_path)
-        proposer_query = build_proposer_query(failures, feedback_history, evolution_mode, truncation_level, self.task_constraints, project_root=self._project_root)
+        proposer_query = build_proposer_query(
+            failures, feedback_history, evolution_mode, truncation_level,
+            self.task_constraints, project_root=self._project_root,
+            skills_invoked=getattr(self, "_last_sample_skills", None),
+            tools_used=getattr(self, "_last_sample_tools", None),
+        )
 
         if evolution_mode == "skill_only":
             proposer_trace = await self.agents.skill_proposer.run(proposer_query)
@@ -676,6 +705,12 @@ and modify it to add these capabilities. Preserve all existing content that is s
             self.config.selection_strategy, iteration
         )
         return selected if selected else "base"
+
+    def _restart_opencode_server(self) -> None:
+        """Restart the opencode server so it picks up skills from the current branch."""
+        if is_opencode_sdk():
+            from src.harness.opencode.executor import shutdown_project_server
+            shutdown_project_server(self._project_root)
 
     def _get_active_skills(self) -> list[str]:
         """Get list of currently active skills.
