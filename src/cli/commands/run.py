@@ -347,7 +347,7 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool, config_path: Path |
 
     # Load dataset
     try:
-        train_pools, val_data = load_and_split(cfg)
+        train_pools, val_data, _test_data = load_and_split(cfg)
     except FileNotFoundError:
         console.print(f"[red]Error:[/red] Dataset not found at {cfg.dataset_path}")
         raise SystemExit(1)

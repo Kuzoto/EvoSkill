@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import logging
 import os
 import signal
 import socket
@@ -32,6 +33,9 @@ _SERVER_PIDS: dict[str, int] = {}
 _SPAWNED_THIS_RUN: set[str] = set()
 
 _TIMEOUT = 1800  # per-request HTTP timeout (30 min — opencode agents can take 15+ min on complex queries)
+_STRUCTURED_OUTPUT_RETRIES = 2  # extra attempts when model produces reasoning but no completion
+
+log = logging.getLogger(__name__)
 
 
 # ── provider auth ─────────────────────────────────────────────────────
@@ -141,6 +145,7 @@ def _ensure_server(options: dict[str, Any]) -> str:
 
     port = _find_free_port()
     env = dict(os.environ)
+    env["OPENCODE_ENABLE_EXA"] = "1"
     apply_provider_auth_env(options.get("provider_id"), env)
 
     proc = subprocess.Popen(
@@ -164,6 +169,69 @@ def _ensure_server(options: dict[str, Any]) -> str:
 
 # ── query execution ──────────────────────────────────────────────────
 
+async def _execute_once(
+    client: httpx.AsyncClient,
+    options: dict[str, Any],
+    query: str,
+) -> dict[str, Any]:
+    """Run a single opencode session and return the payload dict."""
+    r = await client.post("/session", json={})
+    r.raise_for_status()
+    session_id = r.json()["id"]
+
+    body: dict[str, Any] = {
+        "parts": [{"type": "text", "text": query}],
+        "model": {
+            "providerID": options.get("provider_id", "anthropic"),
+            "modelID": options.get("model_id", "claude-sonnet-4-6"),
+        },
+    }
+    if options.get("system"):
+        body["system"] = options["system"]
+    if options.get("tools"):
+        body["tools"] = options["tools"]
+    if options.get("mode"):
+        body["mode"] = options["mode"]
+    if options.get("format"):
+        body["format"] = options["format"]
+
+    r = await client.post(f"/session/{session_id}/message", json=body)
+    r.raise_for_status()
+    chat_info = r.json()
+
+    r = await client.get(f"/session/{session_id}/message")
+    r.raise_for_status()
+    messages = r.json()
+
+    return {"session_id": session_id, "chat_info": chat_info, "messages": messages}
+
+
+def _has_structured_output_error(payload: dict[str, Any]) -> bool:
+    """Check if the payload truly has no usable output.
+
+    The chat_info error is unreliable — StructuredOutputError can be stamped on
+    an intermediate step even when the model eventually produces output on a
+    later step.  Only retry if the messages themselves have nothing.
+    """
+    msgs: list[dict] = payload.get("messages", [])
+    for msg in reversed(msgs):
+        if msg.get("info", {}).get("role") != "assistant":
+            continue
+        if msg.get("info", {}).get("structured") is not None:
+            return False
+        if any(
+            p.get("type") == "text" and p.get("text", "").strip()
+            for p in msg.get("parts", [])
+        ):
+            return False
+        break
+    chat_info = payload.get("chat_info", {})
+    err = chat_info.get("info", {}).get("error") if isinstance(chat_info, dict) else None
+    if err and err.get("name") == "StructuredOutputError":
+        return True
+    return False
+
+
 async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     if not isinstance(options, dict):
         raise TypeError(f"OpenCode executor requires dict options, got {type(options)}")
@@ -172,41 +240,15 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     base_url = _ensure_server(options)
 
     async with httpx.AsyncClient(base_url=base_url, timeout=_TIMEOUT) as client:
-        # 1. create session
-        r = await client.post("/session", json={})
-        r.raise_for_status()
-        session_id = r.json()["id"]
+        payload = await _execute_once(client, options, query)
 
-        # 2. send message (nested model object — required by the server)
-        body: dict[str, Any] = {
-            "parts": [{"type": "text", "text": query}],
-            "model": {
-                "providerID": options.get("provider_id", "anthropic"),
-                "modelID": options.get("model_id", "claude-sonnet-4-6"),
-            },
-        }
-        if options.get("system"):
-            body["system"] = options["system"]
-        if options.get("tools"):
-            body["tools"] = options["tools"]
-        if options.get("mode"):
-            body["mode"] = options["mode"]
-        if options.get("format"):
-            body["format"] = options["format"]
-
-        r = await client.post(f"/session/{session_id}/message", json=body)
-        r.raise_for_status()
-        chat_info = r.json()
-
-        # 3. fetch full messages (with parts + structured output)
-        r = await client.get(f"/session/{session_id}/message")
-        r.raise_for_status()
-        messages = r.json()
-
-    return [{"session_id": session_id, "chat_info": chat_info, "messages": messages}]
+    return [payload]
 
 
 # ── response parsing ─────────────────────────────────────────────────
+
+_DEBUG_DIR = Path("/tmp/opencode_debug")
+
 
 def parse_response(
     messages: list[Any],
@@ -215,6 +257,15 @@ def parse_response(
 ) -> dict[str, Any]:
     payload = messages[0]
     all_msgs: list[dict] = payload.get("messages", [])
+
+    # Dump full payload for debugging
+    try:
+        _DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+        session_id = payload.get("session_id", "unknown")
+        debug_path = _DEBUG_DIR / f"{session_id}.json"
+        debug_path.write_text(json.dumps(payload, indent=2, default=str))
+    except Exception:
+        pass
 
     # find last assistant message
     assistant_info: dict = {}
@@ -260,6 +311,14 @@ def parse_response(
                 parse_error = f"{type(e).__name__}: {e}"
 
     if output is None and parse_error is None:
+        n_msgs = len(all_msgs)
+        roles = [m.get("info", {}).get("role", "?") for m in all_msgs]
+        print(
+            f"  [DEBUG] No structured output: {n_msgs} messages, roles={roles}, "
+            f"has_text={bool(result_text.strip())}, has_structured={raw_structured is not None}"
+        )
+        if result_text.strip():
+            print(f"  [DEBUG] result_text (first 500 chars): {result_text.strip()[:500]}")
         parse_error = "No structured output returned (context limit likely exceeded)"
 
     # cost / usage

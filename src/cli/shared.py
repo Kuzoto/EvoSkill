@@ -31,11 +31,12 @@ def load_and_split(cfg: ProjectConfig):
     elif "category" not in data.columns:
         data["category"] = "default"
 
-    return stratified_split(
+    train_pools, val_data, test_data = stratified_split(
         data,
         train_ratio=cfg.dataset.train_ratio,
         val_ratio=cfg.dataset.val_ratio,
     )
+    return train_pools, val_data, test_data
 
 
 def infer_provider(model: str) -> str:

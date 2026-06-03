@@ -203,7 +203,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df()
-        train_pools, val_data = stratified_split(df)
+        train_pools, val_data, _test_data = stratified_split(df)
         assert isinstance(train_pools, dict)
         assert isinstance(val_data, list)
 
@@ -211,7 +211,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df(categories=["math", "finance"])
-        train_pools, _ = stratified_split(df)
+        train_pools, _, _test = stratified_split(df)
         assert "math" in train_pools
         assert "finance" in train_pools
 
@@ -219,7 +219,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df(n_per_cat=3)
-        train_pools, _ = stratified_split(df)
+        train_pools, _, _test = stratified_split(df)
         for cat, items in train_pools.items():
             assert len(items) >= 1, f"Category {cat!r} has no training items"
 
@@ -227,7 +227,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df(n_per_cat=3)
-        _, val_data = stratified_split(df)
+        _, val_data, _test = stratified_split(df)
         val_cats = {cat for _, _, cat in val_data}
         for cat in ["cat_a", "cat_b", "cat_c"]:
             assert cat in val_cats
@@ -236,7 +236,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df()
-        _, val_data = stratified_split(df)
+        _, val_data, _test = stratified_split(df)
         for item in val_data:
             assert len(item) == 3  # (question, ground_truth, category)
 
@@ -244,7 +244,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df()
-        train_pools, _ = stratified_split(df)
+        train_pools, _, _test = stratified_split(df)
         for cat, items in train_pools.items():
             for item in items:
                 assert len(item) == 2  # (question, ground_truth)
@@ -264,7 +264,7 @@ class TestStratifiedSplit:
         bad_row = pd.DataFrame([{"question": "Q?", "ground_truth": "A?", "category": None}])
         df = pd.concat([df, bad_row], ignore_index=True)
         # Should not raise
-        train_pools, val_data = stratified_split(df)
+        train_pools, val_data, _test_data = stratified_split(df)
         # None should not appear as a category key
         assert None not in train_pools
 
@@ -273,7 +273,7 @@ class TestStratifiedSplit:
 
         df = self._make_df(n_per_cat=1)
         # Should not raise even with only 1 item per category
-        train_pools, val_data = stratified_split(df)
+        train_pools, val_data, _test_data = stratified_split(df)
         for cat, items in train_pools.items():
             assert len(items) >= 1
 
@@ -281,7 +281,7 @@ class TestStratifiedSplit:
         from src.api.data_utils import stratified_split
 
         df = self._make_df(n_per_cat=100)
-        train_pools, val_data = stratified_split(df, train_ratio=0.18, val_ratio=0.12)
+        train_pools, val_data, _test = stratified_split(df, train_ratio=0.18, val_ratio=0.12)
         # Each category should have ~18 train and ~12 val items
         for cat, items in train_pools.items():
             assert 15 <= len(items) <= 20  # allow for rounding

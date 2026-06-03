@@ -15,6 +15,7 @@ PROVIDER_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "together": ("TOGETHER_API_KEY",),
     "deepseek": ("DEEPSEEK_API_KEY",),
     "xai": ("XAI_API_KEY",),
+    "arc": ("ARC_LLM_API_KEY",),
 }
 
 

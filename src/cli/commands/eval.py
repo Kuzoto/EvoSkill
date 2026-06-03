@@ -14,9 +14,11 @@ console = Console()
 
 @click.command('eval')
 @click.option('--verbose', is_flag=True, default=False, help='Show per-question results.')
+@click.option('--test', is_flag=True, default=False, help='Evaluate on the held-out test set instead of validation.')
+@click.option('--baseline', is_flag=True, default=False, help='Evaluate the baseline (no evolved skills).')
 @click.option('--config', 'config_path', type=click.Path(dir_okay=False, path_type=Path),
               default=None, help='Load a specific config TOML file.')
-def eval_cmd(verbose: bool, config_path: Path | None):
+def eval_cmd(verbose: bool, test: bool, baseline: bool, config_path: Path | None):
     """Evaluate the best skills on the validation set."""
     from src.harness import Agent, set_sdk
     from src.agent_profiles.base_agent.base_agent import make_base_agent_options
@@ -34,20 +36,27 @@ def eval_cmd(verbose: bool, config_path: Path | None):
         console.print("  Using fallback JSON extraction which may be less reliable.\n")
 
     try:
-        _, val_data = load_and_split(cfg)
+        _, val_data, test_data = load_and_split(cfg)
     except FileNotFoundError:
         console.print(f'[red]Error:[/red] Dataset not found at {cfg.dataset_path}')
         raise SystemExit(1)
 
-    manager = ProgramManager(cwd=cfg.project_root)
-    best = manager.get_best_from_frontier()
-    if best:
-        manager.switch_to(best)
-    else:
-        console.print('\n  No frontier found — evaluating base program.\n')
-        best = 'base'
+    eval_data = test_data if test else val_data
+    split_name = 'test' if test else 'val'
 
-    console.print(f'\n  Evaluating [bold]{best}[/bold] on {len(val_data)} samples...\n')
+    manager = ProgramManager(cwd=cfg.project_root)
+    if baseline:
+        manager.switch_to('base')
+        best = 'base (baseline)'
+    else:
+        best = manager.get_best_from_frontier()
+        if best:
+            manager.switch_to(best)
+        else:
+            console.print('\n  No frontier found — evaluating base program.\n')
+            best = 'base'
+
+    console.print(f'\n  Evaluating [bold]{best}[/bold] on {len(eval_data)} {split_name} samples...\n')
 
     agent = Agent(
         make_base_agent_options(
@@ -61,7 +70,7 @@ def eval_cmd(verbose: bool, config_path: Path | None):
     )
     scorer = make_scorer(cfg)
 
-    qa_data = [(q, a) for q, a, _ in val_data]
+    qa_data = [(q, a) for q, a, _ in eval_data]
     results = asyncio.run(
         evaluate_agent_parallel(agent, qa_data, max_concurrent=cfg.evolution.concurrency)
     )

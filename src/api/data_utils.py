@@ -33,7 +33,7 @@ def stratified_split(
     data: pd.DataFrame,
     train_ratio: float = 0.18,
     val_ratio: float = 0.12,
-) -> tuple[dict[str, list[tuple[str, str]]], list[tuple[str, str, str]]]:
+) -> tuple[dict[str, list[tuple[str, str]]], list[tuple[str, str, str]], list[tuple[str, str, str]]]:
     """Split data ensuring each category has at least 1 in both train and validation.
 
     Args:
@@ -44,6 +44,7 @@ def stratified_split(
     Returns:
         train_pools: Dict mapping category -> list of (question, answer) tuples.
         val_data: List of (question, answer, category) tuples for validation.
+        test_data: List of (question, answer, category) tuples for held-out test.
     """
     if train_ratio + val_ratio > 1.0:
         raise ValueError(
@@ -55,13 +56,14 @@ def stratified_split(
     categories = data["category"].unique()
     train_pools: dict[str, list[tuple[str, str]]] = {}
     val_data: list[tuple[str, str, str]] = []
+    test_data: list[tuple[str, str, str]] = []
 
     for cat in categories:
         cat_data = data[data["category"] == cat].sample(frac=1, random_state=42)
         n_train = max(1, int(len(cat_data) * train_ratio))
         n_val = max(1, int(len(cat_data) * val_ratio))
 
-        # Train comes first, then validation
+        # Train comes first, then validation, then test (remainder)
         train_pools[cat] = [
             (row.question, row.ground_truth)
             for _, row in cat_data.head(n_train).iterrows()
@@ -72,5 +74,11 @@ def stratified_split(
                 for _, row in cat_data.iloc[n_train : n_train + n_val].iterrows()
             ]
         )
+        test_data.extend(
+            [
+                (row.question, row.ground_truth, cat)
+                for _, row in cat_data.iloc[n_train + n_val :].iterrows()
+            ]
+        )
 
-    return train_pools, val_data
+    return train_pools, val_data, test_data
