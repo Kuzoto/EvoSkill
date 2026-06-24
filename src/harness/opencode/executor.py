@@ -17,7 +17,6 @@ import signal
 import socket
 import subprocess
 import time
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Type
