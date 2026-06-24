@@ -7,14 +7,18 @@ format is a nested ``model: {providerID, modelID}`` object).
 
 from __future__ import annotations
 
+import asyncio
 import atexit
 import json
 import logging
 import os
+import re
 import signal
 import socket
 import subprocess
 import time
+import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Type
 
@@ -34,6 +38,7 @@ _SPAWNED_THIS_RUN: set[str] = set()
 
 _TIMEOUT = 1800  # per-request HTTP timeout (30 min — opencode agents can take 15+ min on complex queries)
 _STRUCTURED_OUTPUT_RETRIES = 2  # extra attempts when model produces reasoning but no completion
+_RATE_LIMIT_MAX_RETRIES = 5  # retry attempts when rate-limited by the upstream model API
 
 log = logging.getLogger(__name__)
 
@@ -232,6 +237,42 @@ def _has_structured_output_error(payload: dict[str, Any]) -> bool:
     return False
 
 
+def _is_rate_limited(payload: dict[str, Any]) -> tuple[bool, str]:
+    """Check if payload contains a rate-limit error from the upstream API."""
+    for source in (
+        payload.get("chat_info", {}),
+        *(payload.get("messages", [])),
+    ):
+        if not isinstance(source, dict):
+            continue
+        err = source.get("info", {}).get("error")
+        if not err or not isinstance(err, dict):
+            continue
+        data = err.get("data", {})
+        msg = data.get("message", "") if isinstance(data, dict) else str(data)
+        if "rate limit" in msg.lower():
+            return True, msg
+    return False, ""
+
+
+def _parse_rate_limit_wait(msg: str) -> float:
+    """Parse 'try again at HH:MM AM/PM' and return seconds to sleep."""
+    match = re.search(r"try again at (\d{1,2}):(\d{2})\s*(AM|PM)", msg, re.IGNORECASE)
+    if not match:
+        return 65.0
+    hour, minute = int(match.group(1)), int(match.group(2))
+    if match.group(3).upper() == "PM" and hour != 12:
+        hour += 12
+    elif match.group(3).upper() == "AM" and hour == 12:
+        hour = 0
+    now = datetime.now()
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    wait = (target - now).total_seconds()
+    if wait <= 0:
+        wait += 60
+    return min(wait + 5, 300.0)
+
+
 async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     if not isinstance(options, dict):
         raise TypeError(f"OpenCode executor requires dict options, got {type(options)}")
@@ -240,14 +281,25 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
     base_url = _ensure_server(options)
 
     async with httpx.AsyncClient(base_url=base_url, timeout=_TIMEOUT) as client:
-        payload = await _execute_once(client, options, query)
+        for attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
+            payload = await _execute_once(client, options, query)
+
+            is_limited, msg = _is_rate_limited(payload)
+            if not is_limited or attempt >= _RATE_LIMIT_MAX_RETRIES:
+                break
+
+            wait = _parse_rate_limit_wait(msg)
+            print(
+                f"  [RATE LIMIT] attempt {attempt + 1}/{_RATE_LIMIT_MAX_RETRIES}, waiting {wait:.0f}s..."
+            )
+            await asyncio.sleep(wait)
 
     return [payload]
 
 
 # ── response parsing ─────────────────────────────────────────────────
 
-_DEBUG_DIR = Path("/tmp/opencode_debug")
+_DEBUG_DIR = Path.home() / "tmp" / "opencode_debug"
 
 
 def parse_response(
