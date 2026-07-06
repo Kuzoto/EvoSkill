@@ -15,6 +15,8 @@ treasury_bulletins_parsed/
 results/
 DABstep-data/
 .evoskill/
+job-outputs/
+
 
 # Auto-generated configs (contain local paths)
 opencode.json
