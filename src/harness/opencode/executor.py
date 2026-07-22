@@ -300,7 +300,6 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
 
 _DEBUG_DIR = Path.home() / "tmp" / "opencode_debug"
 
-
 def parse_response(
     messages: list[Any],
     response_model: Type[BaseModel],
