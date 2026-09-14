@@ -24,7 +24,19 @@ PROVIDER_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "fireworks": ("FIREWORKS_API_KEY", "FIREWORKS_AI_API_KEY"),
     "fireworks-ai": ("FIREWORKS_API_KEY", "FIREWORKS_AI_API_KEY"),
     "fireworks_ai": ("FIREWORKS_API_KEY", "FIREWORKS_AI_API_KEY"),
+    # Provider ids that exist in opencode.json but were not known here. The
+    # opencode harness derives provider_id from the "<provider>/<model>" string,
+    # so every provider block in opencode.json needs an entry.
+    "arc2": ("ARC_LLM_API_KEY2",),
+    "arc3": ("ARC_LLM_API_KEY_SETH",),
+    "togetherai": ("TOGETHER_AI_API_KEY", "TOGETHER_API_KEY"),
+    "togetherai2": ("TOGETHER_AI_API_KEY2",),
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
 }
+
+# Local / self-hosted OpenAI-compatible servers (vLLM, SGLang, ...) that accept
+# any key. Auth validation is skipped and "EMPTY" is returned as the key.
+NO_AUTH_PROVIDERS: set[str] = {"vllm-local"}
 
 
 def normalize_provider(provider: str | None) -> str:
@@ -48,6 +60,10 @@ def resolve_provider_api_key(provider: str | None) -> tuple[str | None, str | No
 def ensure_provider_api_key(provider: str | None) -> str:
     """Validate that the selected provider has a configured API key."""
     normalized = normalize_provider(provider)
+
+    if normalized in NO_AUTH_PROVIDERS:
+        return "EMPTY"
+
     env_names = PROVIDER_ENV_KEYS.get(normalized)
     if not env_names:
         raise ValueError(f"Unknown provider: {provider}")
@@ -66,6 +82,8 @@ def ensure_provider_api_key(provider: str | None) -> str:
 def apply_provider_auth_env(provider: str | None, env: dict[str, str]) -> None:
     """Mirror a provider key into all accepted env names for child processes."""
     normalized = normalize_provider(provider)
+    if normalized in NO_AUTH_PROVIDERS:
+        return
     value = ensure_provider_api_key(normalized)
     for env_name in PROVIDER_ENV_KEYS[normalized]:
         env.setdefault(env_name, value)

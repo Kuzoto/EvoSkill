@@ -303,6 +303,7 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool, config_path: Path |
         return
 
     from src.harness import Agent, set_sdk
+    from src.harness.skill_mode import get_skill_mode, set_skill_mode
     from src.agent_profiles.base_agent.base_agent import make_base_agent_options_from_task
     from src.agent_profiles.prompt_generator.prompt_generator import (
         make_prompt_generator_options,
@@ -335,7 +336,16 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool, config_path: Path |
     if not cfg.task_constraints and not quiet:
         console.print("[yellow]Warning:[/yellow] No constraints defined in task.md — skills may be unconstrained.")
 
-    console.print(f"\n  [bold]EvoSkill[/bold] — {cfg.evolution.mode}  |  {cfg.harness.name}  |  {cfg.evolution.iterations} iterations\n")
+    _sm = get_skill_mode()
+    _sm_note = {
+        "tool": "skills via Skill tool",
+        "inject": "skills injected into prompt",
+        "both": "skills injected + Skill tool",
+    }[_sm]
+    console.print(
+        f"\n  [bold]EvoSkill[/bold] — {cfg.evolution.mode}  |  {cfg.harness.name}  |  "
+        f"{cfg.evolution.iterations} iterations  |  {_sm_note}\n"
+    )
 
     if cfg.harness.name == "openhands":
         console.print("  [yellow]Warning:[/yellow] OpenHands does not support native structured output.")
@@ -344,6 +354,7 @@ def run_cmd(continue_loop: bool, verbose: bool, quiet: bool, config_path: Path |
     # Map harness to sdk
     sdk = cfg.harness.name  # "claude" or "opencode"
     set_sdk(sdk)
+    set_skill_mode(cfg.harness.skill_mode)
 
     # Load dataset
     try:

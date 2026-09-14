@@ -21,6 +21,7 @@ console = Console()
 def eval_cmd(verbose: bool, test: bool, baseline: bool, config_path: Path | None):
     """Evaluate the best skills on the validation set."""
     from src.harness import Agent, set_sdk
+    from src.harness.skill_mode import get_skill_mode, set_skill_mode
     from src.agent_profiles.base_agent.base_agent import make_base_agent_options
     from src.cli.config import load_config
     from src.cli.shared import load_and_split, make_scorer
@@ -30,6 +31,7 @@ def eval_cmd(verbose: bool, test: bool, baseline: bool, config_path: Path | None
     cfg = load_config(config_path=config_path)
     sdk = cfg.harness.name
     set_sdk(sdk)
+    set_skill_mode(cfg.harness.skill_mode)
 
     if sdk == "openhands":
         console.print("  [yellow]Warning:[/yellow] OpenHands does not support native structured output.")

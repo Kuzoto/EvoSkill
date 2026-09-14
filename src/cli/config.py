@@ -35,6 +35,10 @@ class HarnessConfig:
     data_dirs: list[str] = field(default_factory=list)
     timeout_seconds: int = 1200
     max_retries: int = 3
+    # How active skills reach the agent: "tool" (Skill tool, default),
+    # "inject" (full text in the system prompt, SkillOpt/WikiSkill style),
+    # or "both". See src/harness/skill_mode.py.
+    skill_mode: Literal['tool', 'inject', 'both'] = 'tool'
 
 
 @dataclass
@@ -59,7 +63,7 @@ class DatasetConfig:
 
 @dataclass
 class ScorerConfig:
-    type: Literal['exact', 'multi_tolerance', 'llm', 'script'] = 'multi_tolerance'
+    type: Literal['exact', 'multi_tolerance', 'llm', 'script', 'livecodebench', 'mcq'] = 'multi_tolerance'
     rubric: str | None = None
     model: str | None = None
     provider: str | None = None

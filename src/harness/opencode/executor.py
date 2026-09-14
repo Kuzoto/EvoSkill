@@ -298,7 +298,7 @@ async def execute_query(options: dict[str, Any], query: str) -> list[Any]:
 
 # ── response parsing ─────────────────────────────────────────────────
 
-_DEBUG_DIR = Path.home() / "tmp" / "opencode_debug"
+_DEBUG_DIR = Path(os.environ.get("EVOSKILL_DEBUG_DIR", Path.home() / "tmp" / "opencode_debug"))
 
 def parse_response(
     messages: list[Any],

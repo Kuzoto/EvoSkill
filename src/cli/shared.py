@@ -31,11 +31,49 @@ def load_and_split(cfg: ProjectConfig):
     elif "category" not in data.columns:
         data["category"] = "default"
 
+    # An explicit `split` column (values train/val/test) overrides ratio
+    # splitting. Ratios cannot reproduce an externally-defined membership, so
+    # this is what lets EvoSkill score exactly the same items as another
+    # framework — see SkillFT/scripts/build_aligned_dataset.py.
+    if "split" in data.columns:
+        return _explicit_split(data)
+
     train_pools, val_data, test_data = stratified_split(
         data,
         train_ratio=cfg.dataset.train_ratio,
         val_ratio=cfg.dataset.val_ratio,
     )
+    return train_pools, val_data, test_data
+
+
+def _explicit_split(data):
+    """Build the (train_pools, val_data, test_data) triple from a `split` column.
+
+    Shapes match stratified_split: train_pools maps category -> [(q, a)],
+    val/test are [(q, a, category)]. Rows whose split is anything other than
+    train/val/test are ignored.
+    """
+    train_pools: dict[str, list[tuple[str, str]]] = {}
+    val_data: list[tuple[str, str, str]] = []
+    test_data: list[tuple[str, str, str]] = []
+
+    for _, row in data.iterrows():
+        split = str(row.get("split", "")).strip().lower()
+        question = str(row["question"])
+        answer = str(row["ground_truth"])
+        category = str(row.get("category", "default"))
+        if split == "train":
+            train_pools.setdefault(category, []).append((question, answer))
+        elif split == "val":
+            val_data.append((question, answer, category))
+        elif split == "test":
+            test_data.append((question, answer, category))
+
+    if not val_data:
+        raise ValueError(
+            "dataset has a `split` column but no rows marked val — "
+            "EvoSkill evaluates on the val split"
+        )
     return train_pools, val_data, test_data
 
 
@@ -243,5 +281,24 @@ def make_scorer(cfg: ProjectConfig):
                 return 0.0
 
         return script_scorer
+
+    if cfg.scorer.type == "mcq":
+        # Lettered multiple choice (LiveMathematicianBench): grades exactly like
+        # SkillOpt's evaluator so both frameworks agree on every item.
+        from src.evaluation.mcq_scorer import score_mcq
+
+        return score_mcq
+
+    if cfg.scorer.type == "livecodebench":
+        # ground_truth must be the JSON test-case list, i.e. point
+        # [dataset].ground_truth_column at `public_test_cases` in
+        # .dataset/livecodebench_v6.csv. Set LCB_SANDBOX_BACKEND=subprocess on
+        # hosts without Docker (ARC compute nodes).
+        from src.evaluation.livecodebench import score_livecodebench
+
+        def lcb_scorer(question: str, predicted: str, ground_truth: str) -> float:
+            return score_livecodebench(question, str(ground_truth), str(predicted))
+
+        return lcb_scorer
 
     return _score_multi_tolerance

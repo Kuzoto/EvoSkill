@@ -32,10 +32,26 @@ def _build_base_agent_options(
     data_dirs: list[str] | None = None,
     project_root: str | Path | None = None,
 ) -> Any:
+    # skill_mode decides whether skills are reached through the Skill tool or
+    # pasted into the system prompt (see src/harness/skill_mode.py).
+    from src.harness.skill_mode import (
+        build_skill_section,
+        exposes_skill_tool,
+        injects_skills,
+        load_active_skills,
+    )
+
+    system_text = prompt_text
+    if injects_skills():
+        system_text += build_skill_section(load_active_skills(project_root))
+    tools = BASE_AGENT_TOOLS if exposes_skill_tool() else [
+        t for t in BASE_AGENT_TOOLS if t != "Skill"
+    ]
+
     return build_options(
-        system=prompt_text,
+        system=system_text,
         schema=AgentResponse.model_json_schema(),
-        tools=BASE_AGENT_TOOLS,
+        tools=tools,
         project_root=project_root,
         model=model,
         data_dirs=data_dirs,

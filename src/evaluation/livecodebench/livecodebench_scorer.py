@@ -1,3 +1,4 @@
+import os
 import re
 import json
 from llm_sandbox import SandboxSession
@@ -48,8 +49,31 @@ sys.stdin = StringIO({repr(test_input)})
 {code}
 """
 
+        # LCB_SANDBOX_BACKEND selects the executor:
+        #   docker (default) | podman | kubernetes | micromamba -> llm_sandbox
+        #   subprocess -> plain `python -c` with a timeout, for hosts without a
+        #   container runtime (ARC Slurm compute nodes).
+        backend = os.environ.get("LCB_SANDBOX_BACKEND", "docker").strip().lower()
+        if backend == "subprocess":
+            import subprocess
+            import sys as _sys
+
+            try:
+                proc = subprocess.run(
+                    [_sys.executable, "-c", wrapped_code],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+            except subprocess.TimeoutExpired:
+                return False, f"timeout after {timeout}s"
+            if proc.returncode == 0:
+                return True, proc.stdout.strip()
+            return False, proc.stderr.strip()
+
         with SandboxSession(
             lang="python",
+            backend=backend,
             keep_template=False,
             verbose=False,
         ) as session:

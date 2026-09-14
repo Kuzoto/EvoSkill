@@ -47,9 +47,13 @@ async def evaluate_agent_parallel(
     Returns:
         List of EvalResult containing question, ground_truth, and trace
     """
+    from src.evaluation.trace_export import begin_batch, dump_trace
+
+    begin_batch()  # new subdir per eval batch (no-op unless EVOSKILL_TRACE_DIR is set)
+
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def run_one(question: str, ground_truth: str) -> EvalResult[T]:
+    async def run_one(question: str, ground_truth: str, idx: int) -> EvalResult[T]:
         async with semaphore:
             try:
                 async with asyncio.timeout(1020):  # 17-minute hard limit per eval
@@ -78,8 +82,10 @@ async def evaluate_agent_parallel(
             except Exception as e:
                 print(f"Failed on question: {question[:50]}... Error: {e}")
                 trace = None
+            # Opt-in per-question trace file (no-op unless EVOSKILL_TRACE_DIR is set).
+            dump_trace(question, ground_truth, trace, index=idx)
             return EvalResult(question=question, ground_truth=ground_truth, trace=trace)
 
-    tasks = [run_one(q, gt) for q, gt in items]
+    tasks = [run_one(q, gt, i) for i, (q, gt) in enumerate(items)]
     results = await tqdm_asyncio.gather(*tasks, desc="Evaluating")
     return results

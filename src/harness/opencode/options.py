@@ -9,6 +9,7 @@ All OpenCode-specific construction logic lives here:
 
 from __future__ import annotations
 
+import os
 import json
 from pathlib import Path
 from typing import Any, Iterable
@@ -133,9 +134,30 @@ def build_opencode_options(
             f"{dirs_note}"
         )
 
-    system_with_dirs += (
+    # The block below coaches the model to call the Skill tool. It is wrong when
+    # skills are injected into the prompt (there is no tool to call, and the
+    # named example skills may not exist), so it is skipped in that mode.
+    from ..skill_mode import exposes_skill_tool
+
+    # EVOSKILL_WEB_TOOLS=0 (closed-book benchmarks such as LiveMathematicianBench, whose
+    # questions come from recent papers a search would find) drops the web-search
+    # guidance; the run's opencode.json denies the tools themselves.
+    web_guidance = (
+        "\n\n"
+        "Web search: Use the built-in websearch tool first. "
+        "If it returns a rate limit or 429 error, fall back to the backup search via bash:\n"
+        "  python3 scripts/websearch.py \"your query\"\n"
+        "This returns a JSON array of {title, url, snippet} results. "
+        "Use these URLs with webfetch to get full page content."
+    ) if os.environ.get("EVOSKILL_WEB_TOOLS", "1") != "0" else ""
+
+    skill_nudge = (
         "\n\n"
         "Before answering, use the brainstorming skill to plan your approach."
+        + web_guidance
+    )
+
+    few_shot = (
         "\n\n"
         "## Using Skills\n"
         "You have access to skills via the Skill tool. Skills provide specialized "
@@ -178,13 +200,13 @@ def build_opencode_options(
         "BEFORE starting your work. Match the skill to the question type — "
         "numeric skills for counting/quantities, fact-verification for claims, "
         "brainstorming for research, testing skills for code.\n"
-        "\n\n"
-        "Web search: Use the built-in websearch tool first. "
-        "If it returns a rate limit or 429 error, fall back to the backup search via bash:\n"
-        "  python3 scripts/websearch.py \"your query\"\n"
-        "This returns a JSON array of {title, url, snippet} results. "
-        "Use these URLs with webfetch to get full page content."
     )
+    
+    if exposes_skill_tool():
+        system_with_dirs += skill_nudge
+    else:
+        # keep the web-search guidance, which is independent of skills
+        system_with_dirs += web_guidance
 
     return {
         "system": system_with_dirs,
