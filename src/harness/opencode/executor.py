@@ -95,8 +95,27 @@ def _kill_pid(pid: int) -> None:
         pass
 
 
+# ── TEMPORARY evidence capture (remove after the OfficeQA server-death debugging) ──
+# Enabled by SkillFT's EVOSKILL_DEBUG_CAPTURE=1, which exports the two variables below.
+#   EVOSKILL_OPENCODE_DATA_HOME   XDG_DATA_HOME for the opencode server only: a per-job
+#                                 opencode.db and log dir that opencode's log cleanup (which
+#                                 deletes the newest logs) and other jobs cannot touch.
+#   EVOSKILL_OPENCODE_SERVER_LOG  file receiving the server's stdout/stderr (normally
+#                                 /dev/null) plus a line for every spawn/kill EvoSkill makes.
+def _debug_note(message: str) -> None:
+    path = os.environ.get("EVOSKILL_OPENCODE_SERVER_LOG")
+    if not path:
+        return
+    try:
+        with open(path, "a") as f:
+            f.write(f"==== {time.strftime('%Y-%m-%dT%H:%M:%S')} [evoskill] {message}\n")
+    except OSError:
+        pass
+
+
 def _kill_all_opencode_servers() -> None:
     """Kill all opencode serve processes on this machine."""
+    _debug_note("pkill -f 'opencode serve' (kill all servers before spawning)")
     try:
         subprocess.run(
             ["pkill", "-f", "opencode serve"],
@@ -109,6 +128,7 @@ def _kill_all_opencode_servers() -> None:
 def shutdown_project_server(project_root: str | Path | None) -> None:
     key = _resolve_key(project_root)
     pid = _SERVER_PIDS.pop(key, None)
+    _debug_note(f"shutdown_project_server pid={pid} port={_SERVER_PORTS.get(key)} (restart)")
     if pid is not None:
         _kill_pid(pid)
     _SERVER_PORTS.pop(key, None)
@@ -152,14 +172,21 @@ def _ensure_server(options: dict[str, Any]) -> str:
     env["OPENCODE_ENABLE_EXA"] = "1"
     apply_provider_auth_env(options.get("provider_id"), env)
 
+    data_home = os.environ.get("EVOSKILL_OPENCODE_DATA_HOME")
+    if data_home:
+        env["XDG_DATA_HOME"] = data_home  # server only: uv's managed Python lives under XDG_DATA_HOME too
+    server_log = os.environ.get("EVOSKILL_OPENCODE_SERVER_LOG")
+    out = open(server_log, "a", buffering=1) if server_log else subprocess.DEVNULL
+
     proc = subprocess.Popen(
         ["opencode", "serve", "--port", str(port), "--hostname", "127.0.0.1"],
         cwd=options.get("cwd"),
         env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=out,
+        stderr=subprocess.STDOUT if server_log else subprocess.DEVNULL,
         start_new_session=True,
     )
+    _debug_note(f"spawned opencode serve pid={proc.pid} port={port} data_home={data_home}")
 
     _SERVER_PORTS[key] = port
     _SERVER_PIDS[key] = proc.pid

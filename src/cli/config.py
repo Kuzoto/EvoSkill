@@ -63,7 +63,7 @@ class DatasetConfig:
 
 @dataclass
 class ScorerConfig:
-    type: Literal['exact', 'multi_tolerance', 'llm', 'script', 'livecodebench', 'mcq'] = 'multi_tolerance'
+    type: Literal['exact', 'multi_tolerance', 'llm', 'script', 'livecodebench', 'mcq', 'officeqa_em'] = 'multi_tolerance'
     rubric: str | None = None
     model: str | None = None
     provider: str | None = None

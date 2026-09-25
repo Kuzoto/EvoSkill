@@ -289,6 +289,13 @@ def make_scorer(cfg: ProjectConfig):
 
         return score_mcq
 
+    if cfg.scorer.type == "officeqa_em":
+        # OfficeQA graded like SkillOpt's evaluator (normalized exact match, no
+        # tolerance), for runs aligned with SkillOpt (bench officeqa-skillopt).
+        from src.evaluation.officeqa_em_scorer import score_officeqa_em
+
+        return score_officeqa_em
+
     if cfg.scorer.type == "livecodebench":
         # ground_truth must be the JSON test-case list, i.e. point
         # [dataset].ground_truth_column at `public_test_cases` in

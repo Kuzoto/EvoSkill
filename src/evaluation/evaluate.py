@@ -6,6 +6,7 @@ from tqdm.asyncio import tqdm_asyncio
 
 from src.harness import Agent, AgentTrace
 from src.harness.sdk_config import get_sdk
+from src.harness.skill_mode import get_skill_mode
 
 if TYPE_CHECKING:
     from src.cache import RunCache
@@ -14,9 +15,21 @@ T = TypeVar("T")
 
 
 def _extract_model(options) -> str:
-    """Best-effort model id extraction from either dict or ClaudeAgentOptions."""
+    """Model identity for the run cache: "<provider>/<model>" where available.
+
+    The opencode harness passes a dict whose model lives under ``model_id`` (with the
+    provider in ``provider_id``); only the Claude SDK path has an ``options.model``.
+    Reading just "model" returned "" for every opencode run, so the cache key collapsed
+    to (tree_hash, question, sdk) and a cached run could be replayed for a *different*
+    model — e.g. a gpt-oss-120b baseline served as the Qwen3.5-9B baseline, since both
+    seeded the same two starter skills and therefore hashed the same tree.
+    Provider is included because the same model id behaves differently per endpoint
+    (arc/gpt-oss-120b vs vllm-local/gpt-oss-120b).
+    """
     if isinstance(options, dict):
-        return str(options.get("model", "") or "")
+        model = str(options.get("model") or options.get("model_id") or "")
+        provider = str(options.get("provider_id") or "")
+        return f"{provider}/{model}" if provider and model else model
     return str(getattr(options, "model", "") or "")
 
 
@@ -61,6 +74,10 @@ async def evaluate_agent_parallel(
                     trace = None
                     sdk = get_sdk()
                     model = _extract_model(agent._get_options())
+                    # Skill delivery changes the agent's prompt but not the files the
+                    # tree hash covers, so "tool" and "inject" runs over the same skills
+                    # would otherwise share cache entries.
+                    model = f"{model}|skill_mode={get_skill_mode()}"
                     if cache is not None:
                         trace = cache.get(
                             question,
