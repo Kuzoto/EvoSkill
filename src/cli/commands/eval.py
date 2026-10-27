@@ -48,7 +48,23 @@ def eval_cmd(verbose: bool, test: bool, baseline: bool, config_path: Path | None
 
     manager = ProgramManager(cwd=cfg.project_root)
     if baseline:
-        manager.switch_to('base')
+        # `program/base` is only created by the run loop's INIT step, so a project that
+        # has never been evolved has no branch to switch to — its working tree already is
+        # the baseline (seeded skills, or none). Mirror the frontier path and carry on
+        # instead of failing with "pathspec 'program/base' did not match any file(s)".
+        if 'base' in manager.list_programs():
+            manager.switch_to('base')
+        else:
+            # Name what the baseline actually is, since nothing pins it down: with
+            # SEED_SKILLS=0 the run dir has no skills at all, and a hand-seeded dir has
+            # whatever was copied in. Creating the branch here would instead freeze the
+            # current tree as "base" for every later run, so this stays read-only.
+            skills_dir = Path(cfg.project_root) / '.claude' / 'skills'
+            present = sorted(p.name for p in skills_dir.iterdir()) if skills_dir.is_dir() else []
+            console.print(
+                '\n  No base program branch yet — evaluating the project as it stands '
+                f"(skills present: {', '.join(present) if present else 'none'}).\n"
+            )
         best = 'base (baseline)'
     else:
         best = manager.get_best_from_frontier()

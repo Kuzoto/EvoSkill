@@ -169,7 +169,13 @@ def _ensure_server(options: dict[str, Any]) -> str:
 
     port = _find_free_port()
     env = dict(os.environ)
-    env["OPENCODE_ENABLE_EXA"] = "1"
+    # opencode registers its `websearch`/`codesearch` tools only for the opencode provider
+    # or when this flag is set, so this env var is the only reason they exist for arc /
+    # vllm-local models. They are backed by Exa's free MCP tier, which rate-limits hard
+    # (100% of searches returned 429 in job 602299). EVOSKILL_EXA=0 leaves them
+    # unregistered, so web search goes through scripts/websearch.py (Serper, cached).
+    if os.environ.get("EVOSKILL_EXA", "1").strip().lower() not in ("0", "false", "no"):
+        env["OPENCODE_ENABLE_EXA"] = "1"
     apply_provider_auth_env(options.get("provider_id"), env)
 
     data_home = os.environ.get("EVOSKILL_OPENCODE_DATA_HOME")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 from typing import TYPE_CHECKING
 
@@ -36,14 +37,65 @@ def load_and_split(cfg: ProjectConfig):
     # this is what lets EvoSkill score exactly the same items as another
     # framework — see SkillFT/scripts/build_aligned_dataset.py.
     if "split" in data.columns:
-        return _explicit_split(data)
+        return carve_skill_val(*_explicit_split(data))
 
     train_pools, val_data, test_data = stratified_split(
         data,
         train_ratio=cfg.dataset.train_ratio,
         val_ratio=cfg.dataset.val_ratio,
     )
-    return train_pools, val_data, test_data
+    return carve_skill_val(train_pools, val_data, test_data)
+
+
+SKILL_VAL_RATIO_ENV = "EVOSKILL_SKILL_VAL_RATIO"
+SKILL_VAL_SEED_ENV = "EVOSKILL_SKILL_VAL_SEED"
+
+
+def _skill_val_rank(seed: int, question: str) -> str:
+    """Stable per-item ordering key: independent of row order, controlled by the seed."""
+    return hashlib.sha1(f"{seed}:{question}".encode("utf-8")).hexdigest()
+
+
+def carve_skill_val(train_pools, val_data, test_data):
+    """Hold a slice of train out for skill selection, when EVOSKILL_SKILL_VAL_RATIO is set.
+
+    EvoSkill normally evolves against `val` and also reports progress on `val`, so skills
+    are selected on the set used to read progress. With a ratio in (0, 1):
+
+        evolve on    the train pool minus the carved slice
+        select on    the carved slice   (returned as val_data — the evolution loop's set)
+        progress on  the dataset's val  (returned as test_data — what `eval --test` reports)
+        untouched    the dataset's test (dropped from this run entirely)
+
+    The slice is drawn per category by a seeded hash of the question, so it is the same in
+    a later eval job and does not depend on row order. Returns the triple unchanged when
+    the ratio is unset or 0.
+    """
+    raw = os.environ.get(SKILL_VAL_RATIO_ENV, "").strip()
+    if not raw:
+        return train_pools, val_data, test_data
+    ratio = float(raw)
+    if ratio == 0:
+        return train_pools, val_data, test_data
+    if not 0 < ratio < 1:
+        raise ValueError(f"{SKILL_VAL_RATIO_ENV} must be between 0 and 1, got {ratio}")
+    seed = int(os.environ.get(SKILL_VAL_SEED_ENV, "42") or 42)
+
+    kept: dict[str, list[tuple[str, str]]] = {}
+    skill_val: list[tuple[str, str, str]] = []
+    for category, items in train_pools.items():
+        ordered = sorted(items, key=lambda qa: _skill_val_rank(seed, qa[0]))
+        # at least one per category, and never leave a category's train pool empty
+        n = min(max(1, round(len(ordered) * ratio)), max(0, len(ordered) - 1))
+        for question, answer in ordered[:n]:
+            skill_val.append((question, answer, category))
+        if ordered[n:]:
+            kept[category] = ordered[n:]
+    if not skill_val:
+        raise ValueError(
+            f"{SKILL_VAL_RATIO_ENV}={ratio} carved no items — train pool too small"
+        )
+    return kept, skill_val, val_data
 
 
 def _explicit_split(data):

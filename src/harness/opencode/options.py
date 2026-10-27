@@ -44,6 +44,21 @@ def split_opencode_model(model: str | None) -> tuple[str, str]:
     return "anthropic", full
 
 
+# Tools opencode exposes that the harness never grants, but which the model can
+# still call because the session `tools` map only switches tools *on*. `question`
+# (src/tool/question.ts) awaits Question.ask() with no timeout, so in a headless
+# server run nobody ever replies: the call sits in `running` until the eval
+# timeout kills the question, and the retries after it. Listing a tool as False
+# makes opencode's resolveTools() delete it before the model sees it.
+DISABLE_TOOLS_ENV = "EVOSKILL_DISABLE_TOOLS"
+
+
+def disabled_opencode_tools() -> set[str]:
+    """Tool names to withhold, from EVOSKILL_DISABLE_TOOLS (comma list, unset = none)."""
+    raw = os.environ.get(DISABLE_TOOLS_ENV, "")
+    return {name.strip().lower() for name in raw.split(",") if name.strip()}
+
+
 def to_opencode_tools(tools: Iterable[str]) -> dict[str, bool]:
     """Map Claude tool names (PascalCase) to OpenCode names (lowercase)."""
     converted: dict[str, bool] = {}
@@ -51,6 +66,8 @@ def to_opencode_tools(tools: Iterable[str]) -> dict[str, bool]:
         normalized = CLAUDE_TO_OPENCODE_TOOL.get(tool, tool.lower())
         if normalized is not None:
             converted[normalized] = True
+    for name in disabled_opencode_tools():
+        converted[name] = False
     return converted
 
 
@@ -142,14 +159,30 @@ def build_opencode_options(
     # EVOSKILL_WEB_TOOLS=0 (closed-book benchmarks such as LiveMathematicianBench, whose
     # questions come from recent papers a search would find) drops the web-search
     # guidance; the run's opencode.json denies the tools themselves.
-    web_guidance = (
-        "\n\n"
-        "Web search: Use the built-in websearch tool first. "
-        "If it returns a rate limit or 429 error, fall back to the backup search via bash:\n"
-        "  python3 scripts/websearch.py \"your query\"\n"
-        "This returns a JSON array of {title, url, snippet} results. "
-        "Use these URLs with webfetch to get full page content."
-    ) if os.environ.get("EVOSKILL_WEB_TOOLS", "1") != "0" else ""
+    # With EVOSKILL_EXA=0 the built-in websearch/codesearch tools are never registered
+    # (see executor._ensure_server), so naming them here would send the agent after a tool
+    # it cannot see — that is what made a model call Skill({"name": "websearch"}).
+    _exa = os.environ.get("EVOSKILL_EXA", "1").strip().lower() not in ("0", "false", "no")
+    if os.environ.get("EVOSKILL_WEB_TOOLS", "1") == "0":
+        web_guidance = ""
+    elif _exa:
+        web_guidance = (
+            "\n\n"
+            "Web search: Use the built-in websearch tool first. "
+            "If it returns a rate limit or 429 error, fall back to the backup search via bash:\n"
+            "  python3 scripts/websearch.py \"your query\"\n"
+            "This returns a JSON array of {title, url, snippet} results. "
+            "Use these URLs with webfetch to get full page content."
+        )
+    else:
+        web_guidance = (
+            "\n\n"
+            "Web search: there is no websearch tool. Search the web by running, via bash:\n"
+            "  python3 scripts/websearch.py \"your query\"\n"
+            "This returns a JSON array of {title, url, snippet} results. "
+            "Use these URLs with webfetch to get full page content. "
+            "Do not guess URLs — search first, then fetch what the search returned."
+        )
 
     skill_nudge = (
         "\n\n"
