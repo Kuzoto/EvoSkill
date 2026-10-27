@@ -37,6 +37,7 @@ def _build_base_agent_options(
     from src.harness.skill_mode import (
         build_skill_section,
         exposes_skill_tool,
+        exposes_skilltree_tool,
         injects_skills,
         load_active_skills,
     )
@@ -47,6 +48,8 @@ def _build_base_agent_options(
     tools = BASE_AGENT_TOOLS if exposes_skill_tool() else [
         t for t in BASE_AGENT_TOOLS if t != "Skill"
     ]
+    if exposes_skilltree_tool():
+        tools = [*tools, "SkillTree"]
 
     return build_options(
         system=system_text,

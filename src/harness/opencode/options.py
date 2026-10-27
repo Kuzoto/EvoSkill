@@ -31,6 +31,8 @@ CLAUDE_TO_OPENCODE_TOOL = {
     "WebSearch": "websearch",
     "TodoWrite": "todowrite",
     "Skill": "skill",
+    # SkillTree's custom tool (.opencode/tool/skilltree.ts, named after its file).
+    "SkillTree": "skilltree",
     # OpenCode does not expose a separate BashOutput tool.
     "BashOutput": None,
 }
@@ -68,6 +70,12 @@ def to_opencode_tools(tools: Iterable[str]) -> dict[str, bool]:
             converted[normalized] = True
     for name in disabled_opencode_tools():
         converted[name] = False
+    # In tree mode opencode's built-in skill tool would still list every skill it
+    # discovers in .claude/skills, bypassing the tree, so withdraw it explicitly.
+    from ..skill_mode import exposes_skilltree_tool
+
+    if exposes_skilltree_tool():
+        converted["skill"] = False
     return converted
 
 
@@ -154,7 +162,7 @@ def build_opencode_options(
     # The block below coaches the model to call the Skill tool. It is wrong when
     # skills are injected into the prompt (there is no tool to call, and the
     # named example skills may not exist), so it is skipped in that mode.
-    from ..skill_mode import exposes_skill_tool
+    from ..skill_mode import exposes_skill_tool, exposes_skilltree_tool
 
     # EVOSKILL_WEB_TOOLS=0 (closed-book benchmarks such as LiveMathematicianBench, whose
     # questions come from recent papers a search would find) drops the web-search
@@ -235,8 +243,20 @@ def build_opencode_options(
         "brainstorming for research, testing skills for code.\n"
     )
     
+    # Tree mode: the skilltree tool's own description explains how to search and
+    # traverse; the prompt only says that it exists and should be checked first.
+    skilltree_nudge = (
+        "\n\n"
+        "Before answering, use the skilltree tool to look for skills relevant to the task: "
+        "call it with `query` describing the kind of skill you need, then go deeper with "
+        "`parent` and load any skill that fits."
+        + web_guidance
+    )
+
     if exposes_skill_tool():
         system_with_dirs += skill_nudge
+    elif exposes_skilltree_tool():
+        system_with_dirs += skilltree_nudge
     else:
         # keep the web-search guidance, which is independent of skills
         system_with_dirs += web_guidance

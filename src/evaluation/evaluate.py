@@ -6,7 +6,7 @@ from tqdm.asyncio import tqdm_asyncio
 
 from src.harness import Agent, AgentTrace
 from src.harness.sdk_config import get_sdk
-from src.harness.skill_mode import get_skill_mode
+from src.harness.skill_mode import cache_tag
 
 if TYPE_CHECKING:
     from src.cache import RunCache
@@ -75,9 +75,8 @@ async def evaluate_agent_parallel(
                     sdk = get_sdk()
                     model = _extract_model(agent._get_options())
                     # Skill delivery changes the agent's prompt but not the files the
-                    # tree hash covers, so "tool" and "inject" runs over the same skills
-                    # would otherwise share cache entries.
-                    model = f"{model}|skill_mode={get_skill_mode()}"
+                    # tree hash covers (see skill_mode.cache_tag).
+                    model = f"{model}|{cache_tag()}"
                     if cache is not None:
                         trace = cache.get(
                             question,

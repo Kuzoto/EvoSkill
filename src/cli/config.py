@@ -37,8 +37,8 @@ class HarnessConfig:
     max_retries: int = 3
     # How active skills reach the agent: "tool" (Skill tool, default),
     # "inject" (full text in the system prompt, SkillOpt/WikiSkill style),
-    # or "both". See src/harness/skill_mode.py.
-    skill_mode: Literal['tool', 'inject', 'both'] = 'tool'
+    # "both", or "tree" (SkillTree hierarchical tool). See src/harness/skill_mode.py.
+    skill_mode: Literal['tool', 'inject', 'both', 'tree'] = 'tool'
 
 
 @dataclass
