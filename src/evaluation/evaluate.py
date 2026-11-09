@@ -47,6 +47,7 @@ async def evaluate_agent_parallel(
     max_concurrent: int = 2,
     *,
     cache: "RunCache | None" = None,
+    indices: list[int] | None = None,
 ) -> list[EvalResult[T]]:
     """
     Run agent on multiple questions in parallel.
@@ -56,6 +57,8 @@ async def evaluate_agent_parallel(
         items: List of (question, ground_truth) tuples
         max_concurrent: Max concurrent agent runs (default 2)
         cache: Optional RunCache for caching results (keys on git tree hash)
+        indices: dataset positions of ``items`` for the trace file names (default
+            0..n-1); a continued eval runs a subset and keeps the original numbering
 
     Returns:
         List of EvalResult containing question, ground_truth, and trace
@@ -102,6 +105,9 @@ async def evaluate_agent_parallel(
             dump_trace(question, ground_truth, trace, index=idx)
             return EvalResult(question=question, ground_truth=ground_truth, trace=trace)
 
-    tasks = [run_one(q, gt, i) for i, (q, gt) in enumerate(items)]
+    if indices is not None and len(indices) != len(items):
+        raise ValueError("indices must match items")
+    tasks = [run_one(q, gt, indices[i] if indices is not None else i)
+             for i, (q, gt) in enumerate(items)]
     results = await tqdm_asyncio.gather(*tasks, desc="Evaluating")
     return results

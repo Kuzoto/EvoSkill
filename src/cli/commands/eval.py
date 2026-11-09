@@ -89,14 +89,49 @@ def eval_cmd(verbose: bool, test: bool, baseline: bool, config_path: Path | None
     scorer = make_scorer(cfg)
 
     qa_data = [(q, a) for q, a, _ in eval_data]
-    results = asyncio.run(
-        evaluate_agent_parallel(agent, qa_data, max_concurrent=cfg.evolution.concurrency)
+
+    # Continue mode (EVOSKILL_EVAL_CONTINUE): reuse questions an earlier run of the same
+    # setup answered, rerun only the ones left without an answer.
+    from src.evaluation.eval_continue import (
+        continue_dirs, copy_reused, load_previous, run_meta, write_meta,
     )
+    from src.evaluation.trace_export import begin_batch
+
+    meta = run_meta(cfg, split_name, [q for q, _ in qa_data])
+    write_meta(meta)
+    prev_dirs = continue_dirs()
+    previous: dict = {}
+    if prev_dirs:
+        previous, warnings = load_previous(prev_dirs, meta)
+        for w in warnings:
+            console.print(f'  [yellow]Warning:[/yellow] {w}')
+    todo = [i for i, (q, _) in enumerate(qa_data) if q not in previous]
+    reused = {i: previous[q] for i, (q, _) in enumerate(qa_data) if q in previous}
+    if prev_dirs:
+        console.print(f'  Continuing from {len(prev_dirs)} earlier run(s): {len(reused)} answered '
+                      f'question(s) reused, {len(todo)} to run.\n')
+
+    if todo:
+        new_results = asyncio.run(evaluate_agent_parallel(
+            agent, [qa_data[i] for i in todo], max_concurrent=cfg.evolution.concurrency,
+            indices=todo,
+        ))
+    else:
+        new_results = []
+        begin_batch()  # still give the reused records a batch dir
+    copy_reused(reused)
+
+    answers: dict[int, str] = {}
+    for i, r in zip(todo, new_results):
+        answers[i] = r.trace.output.final_answer if r.trace and r.trace.output else ''
+    for i, (rec, _) in reused.items():
+        answers[i] = str(rec.get('final_answer') or '')
 
     scores = []
     combined = []
-    for r, (q, a) in zip(results, qa_data):
-        got = r.trace.output.final_answer if r.trace and r.trace.output else ''
+    n_rerun_unanswered = sum(1 for i in todo if not answers[i].strip())
+    for i, (q, a) in enumerate(qa_data):
+        got = answers[i]
         s = scorer(q, got, a)
         scores.append(s)
         combined.append((q, a, got, s))
@@ -116,3 +151,6 @@ def eval_cmd(verbose: bool, test: bool, baseline: bool, config_path: Path | None
 
     n_correct = sum(1 for s in scores if s >= 0.8)
     console.print(f'  Accuracy: [bold]{accuracy:.1%}[/bold]  ({n_correct}/{len(scores)} correct)\n')
+    if prev_dirs:
+        console.print(f'  Continue: {len(reused)} reused, {len(todo)} rerun, '
+                      f'{n_rerun_unanswered} still without an answer.\n')
