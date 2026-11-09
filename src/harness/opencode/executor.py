@@ -113,16 +113,66 @@ def _debug_note(message: str) -> None:
         pass
 
 
-def _kill_all_opencode_servers() -> None:
-    """Kill all opencode serve processes on this machine."""
-    _debug_note("pkill -f 'opencode serve' (kill all servers before spawning)")
+def _own_cgroup() -> str:
+    """Our Slurm job's cgroup, or "" when we are not inside one.
+
+    Only a per-job cgroup identifies "this run": on a login node every process of the
+    session shares one cgroup, so matching on it would kill a bystander's server — the
+    exact thing this scoping exists to prevent.
+    """
     try:
-        subprocess.run(
-            ["pkill", "-f", "opencode serve"],
-            capture_output=True, timeout=5,
-        )
+        path = Path("/proc/self/cgroup").read_text().strip().split("::")[-1]
+    except OSError:
+        return ""
+    return path if "job_" in path else ""
+
+
+def _kill_all_opencode_servers(project_root: str | Path | None = None) -> None:
+    """Kill stale opencode servers belonging to *this* run — never a bystander's.
+
+    A blanket `pkill -f "opencode serve"` kills every opencode server on the node,
+    including the one driving a different Slurm job or a different repo's run. On a
+    two-node cluster where both jobs land together that silently destroys the other
+    run (its server disappears mid-question and every request then times out).
+
+    A server is ours if it is in our cgroup — i.e. the same Slurm job — or if its
+    working directory is the project we are about to serve, which is what makes the
+    cleanup of a previous run's leftovers still work.
+    """
+    root = str(Path(project_root).resolve()) if project_root else None
+    ours = _own_cgroup()
+    killed, spared = [], []
+    try:
+        out = subprocess.run(["pgrep", "-u", str(os.getuid()), "-f", "opencode serve"],
+                             capture_output=True, text=True, timeout=5)
+        pids = [int(x) for x in out.stdout.split() if x.strip().isdigit()]
     except Exception:
-        pass
+        pids = []
+    for pid in pids:
+        if pid == os.getpid():
+            continue
+        try:
+            cgroup = Path(f"/proc/{pid}/cgroup").read_text().strip().split("::")[-1]
+        except OSError:
+            cgroup = ""
+        try:
+            cwd = os.readlink(f"/proc/{pid}/cwd")
+        except OSError:
+            cwd = ""
+        mine = (ours and cgroup == ours) or (root and cwd == root)
+        if not mine:
+            spared.append(pid)
+            continue
+        try:
+            os.kill(pid, signal.SIGTERM)
+            killed.append(pid)
+        except OSError:
+            pass
+    _debug_note(f"killed stale opencode servers {killed or 'none'}; "
+                f"spared other jobs' servers {spared or 'none'}")
+    if spared:
+        print(f"  [opencode] left {len(spared)} server(s) from another job/project alone",
+              flush=True)
 
 
 def shutdown_project_server(project_root: str | Path | None) -> None:
@@ -164,7 +214,7 @@ def _ensure_server(options: dict[str, Any]) -> str:
             return f"http://127.0.0.1:{port}"
 
     # kill ALL opencode servers from previous runs
-    _kill_all_opencode_servers()
+    _kill_all_opencode_servers(options.get("cwd"))
     time.sleep(0.5)
 
     port = _find_free_port()
