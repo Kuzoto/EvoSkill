@@ -70,11 +70,14 @@ def to_opencode_tools(tools: Iterable[str]) -> dict[str, bool]:
             converted[normalized] = True
     for name in disabled_opencode_tools():
         converted[name] = False
-    # In tree mode opencode's built-in skill tool would still list every skill it
-    # discovers in .claude/skills, bypassing the tree, so withdraw it explicitly.
-    from ..skill_mode import exposes_skilltree_tool
+    # opencode enables every built-in tool that is not explicitly set to false, so
+    # leaving "Skill" out of the list does not remove it. Withdraw it in every mode
+    # that does not deliver skills through it (inject, tree): otherwise a model trained
+    # to call Skill uses it there too (inject: a second route to the same skills; tree:
+    # a flat route that bypasses the tree).
+    from ..skill_mode import exposes_skill_tool
 
-    if exposes_skilltree_tool():
+    if not exposes_skill_tool():
         converted["skill"] = False
     return converted
 

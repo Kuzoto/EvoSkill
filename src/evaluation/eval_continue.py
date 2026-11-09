@@ -28,7 +28,7 @@ from typing import Any
 CONTINUE_ENV = "EVOSKILL_EVAL_CONTINUE"
 META_NAME = "run_meta.json"
 # Setup fields that must match for answers to be reused.
-COMPARED = ("model", "sdk", "skill_mode", "skills_sha", "skill_discovery", "disabled_tools",
+COMPARED = ("model", "sdk", "skill_mode", "skills_sha", "skill_discovery", "skill_tool", "disabled_tools",
             "split", "dataset_path", "questions_sha", "timeout_seconds")
 
 
@@ -69,12 +69,17 @@ def run_meta(cfg: Any, split: str, questions: list[str]) -> dict[str, Any]:
         discovery = "project"
     else:
         discovery = "all"
+    from src.agent_profiles.base_agent.base_agent import BASE_AGENT_TOOLS
+    from src.harness.opencode.options import to_opencode_tools
+
+    skill_tool = "offered" if to_opencode_tools(BASE_AGENT_TOOLS).get("skill") else "withdrawn"
     return {
         "model": str(cfg.harness.model),
         "sdk": str(cfg.harness.name),
         "skill_mode": cache_tag(cfg.project_root),
         "skills_sha": _dir_sha(Path(cfg.project_root) / ".claude" / "skills"),
         "skill_discovery": discovery,
+        "skill_tool": skill_tool,
         "disabled_tools": os.environ.get("EVOSKILL_DISABLE_TOOLS", ""),
         "split": split,
         "dataset_path": str(cfg.dataset_path),
