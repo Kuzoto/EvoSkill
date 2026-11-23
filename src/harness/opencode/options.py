@@ -61,6 +61,17 @@ def disabled_opencode_tools() -> set[str]:
     return {name.strip().lower() for name in raw.split(",") if name.strip()}
 
 
+# The system prompt normally ends with a line pushing the model to use skills first
+# ("use the brainstorming skill" in tool mode, "use the skilltree tool" in tree mode).
+# EVOSKILL_SKILL_NUDGE=0 leaves it out; the tools themselves are unchanged.
+SKILL_NUDGE_ENV = "EVOSKILL_SKILL_NUDGE"
+
+
+def skill_nudge_enabled() -> bool:
+    """False when EVOSKILL_SKILL_NUDGE is 0/false/no/off (unset = on)."""
+    return os.environ.get(SKILL_NUDGE_ENV, "1").strip().lower() not in ("0", "false", "no", "off")
+
+
 def to_opencode_tools(tools: Iterable[str]) -> dict[str, bool]:
     """Map Claude tool names (PascalCase) to OpenCode names (lowercase)."""
     converted: dict[str, bool] = {}
@@ -256,7 +267,10 @@ def build_opencode_options(
         + web_guidance
     )
 
-    if exposes_skill_tool():
+    if not skill_nudge_enabled():
+        # no nudge; keep the web-search guidance, which is independent of skills
+        system_with_dirs += web_guidance
+    elif exposes_skill_tool():
         system_with_dirs += skill_nudge
     elif exposes_skilltree_tool():
         system_with_dirs += skilltree_nudge

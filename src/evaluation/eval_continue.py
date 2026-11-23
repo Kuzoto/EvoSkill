@@ -29,7 +29,9 @@ CONTINUE_ENV = "EVOSKILL_EVAL_CONTINUE"
 META_NAME = "run_meta.json"
 # Setup fields that must match for answers to be reused.
 COMPARED = ("model", "sdk", "skill_mode", "skills_sha", "skill_discovery", "skill_tool", "disabled_tools",
-            "split", "dataset_path", "questions_sha", "timeout_seconds")
+            "skill_nudge", "force_first_skill", "split", "dataset_path", "questions_sha", "timeout_seconds")
+# Value assumed for a field missing from a run_meta.json written before it existed.
+DEFAULTS = {"skill_nudge": "on", "force_first_skill": "off"}
 
 
 def continue_dirs() -> list[Path]:
@@ -70,7 +72,7 @@ def run_meta(cfg: Any, split: str, questions: list[str]) -> dict[str, Any]:
     else:
         discovery = "all"
     from src.agent_profiles.base_agent.base_agent import BASE_AGENT_TOOLS
-    from src.harness.opencode.options import to_opencode_tools
+    from src.harness.opencode.options import skill_nudge_enabled, to_opencode_tools
 
     skill_tool = "offered" if to_opencode_tools(BASE_AGENT_TOOLS).get("skill") else "withdrawn"
     return {
@@ -81,6 +83,9 @@ def run_meta(cfg: Any, split: str, questions: list[str]) -> dict[str, Any]:
         "skill_discovery": discovery,
         "skill_tool": skill_tool,
         "disabled_tools": os.environ.get("EVOSKILL_DISABLE_TOOLS", ""),
+        "skill_nudge": "on" if skill_nudge_enabled() else "off",
+        # set by scripts/sbatch_evoskill.sh when scripts/force_tool_proxy.py fronts vLLM
+        "force_first_skill": "on" if os.environ.get("EVOSKILL_FORCE_FIRST_SKILL") == "1" else "off",
         "split": split,
         "dataset_path": str(cfg.dataset_path),
         "questions_sha": hashlib.sha256("\n".join(questions).encode()).hexdigest()[:16],
@@ -116,9 +121,10 @@ def load_previous(dirs: list[Path], meta: dict[str, Any]) -> tuple[dict[str, tup
         m = d / META_NAME
         if m.is_file():
             old = json.loads(m.read_text())
-            diff = [k for k in COMPARED if old.get(k) != meta.get(k)]
+            diff = [k for k in COMPARED if old.get(k, DEFAULTS.get(k)) != meta.get(k)]
             if diff:
-                lines = "\n".join(f"    {k}: {old.get(k)!r} (earlier) vs {meta.get(k)!r} (now)" for k in diff)
+                lines = "\n".join(f"    {k}: {old.get(k, DEFAULTS.get(k))!r} (earlier) vs {meta.get(k)!r} (now)"
+                                  for k in diff)
                 raise SystemExit(f"{CONTINUE_ENV}: {d} was run with a different setup; "
                                  f"not reusing its answers:\n{lines}")
         else:
