@@ -120,6 +120,14 @@ def cache_tag(project_root: str | Path | None = None) -> str:
     for knob in ("SKILLTREE_EMBED_DEPTH", "SKILLTREE_TOP_K", "SKILLTREE_EMBED_MODEL", "SKILLTREE_NAMES",
                  "SKILLTREE_MIN_SCORE"):
         h.update(f"{knob}={os.environ.get(knob, '')}".encode())
+    # Who writes the search query (model|task|context). Hashed only when not the
+    # default, so cache entries written before the knob existed keep their keys.
+    query_mode = os.environ.get("SKILLTREE_QUERY", "model").strip().lower() or "model"
+    if query_mode != "model":
+        h.update(f"SKILLTREE_QUERY={query_mode}".encode())
+    listing = os.environ.get("SKILLTREE_LISTING", "plain").strip().lower() or "plain"
+    if listing != "plain":  # likewise only hashed when not the default
+        h.update(f"SKILLTREE_LISTING={listing}".encode())
     # The rendered tool description is part of the prompt: a reworded description
     # must not reuse answers cached under the old one.
     from .utils import resolve_project_root

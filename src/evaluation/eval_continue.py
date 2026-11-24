@@ -29,9 +29,9 @@ CONTINUE_ENV = "EVOSKILL_EVAL_CONTINUE"
 META_NAME = "run_meta.json"
 # Setup fields that must match for answers to be reused.
 COMPARED = ("model", "sdk", "skill_mode", "skills_sha", "skill_discovery", "skill_tool", "disabled_tools",
-            "skill_nudge", "force_first_skill", "split", "dataset_path", "questions_sha", "timeout_seconds")
+            "skill_nudge", "force_first_skill", "skilltree_query", "split", "dataset_path", "questions_sha", "timeout_seconds")
 # Value assumed for a field missing from a run_meta.json written before it existed.
-DEFAULTS = {"skill_nudge": "on", "force_first_skill": "off"}
+DEFAULTS = {"skill_nudge": "on", "force_first_skill": "off", "skilltree_query": "model"}
 
 
 def continue_dirs() -> list[Path]:
@@ -85,7 +85,12 @@ def run_meta(cfg: Any, split: str, questions: list[str]) -> dict[str, Any]:
         "disabled_tools": os.environ.get("EVOSKILL_DISABLE_TOOLS", ""),
         "skill_nudge": "on" if skill_nudge_enabled() else "off",
         # set by scripts/sbatch_evoskill.sh when scripts/force_tool_proxy.py fronts vLLM
-        "force_first_skill": "on" if os.environ.get("EVOSKILL_FORCE_FIRST_SKILL") == "1" else "off",
+        "force_first_skill": ("off" if os.environ.get("EVOSKILL_FORCE_FIRST_SKILL") != "1"
+                              else "on" if os.environ.get("EVOSKILL_FORCE_MAX_CALLS", "1") in ("", "1")
+                              else f"on:max{os.environ['EVOSKILL_FORCE_MAX_CALLS']}"),
+        # who writes SkillTree search queries (skilltree/query_writer.py); only tree mode reads it
+        "skilltree_query": (os.environ.get("SKILLTREE_QUERY", "model").strip().lower() or "model")
+                           if os.environ.get("SKILLTREE_PATH") else "model",
         "split": split,
         "dataset_path": str(cfg.dataset_path),
         "questions_sha": hashlib.sha256("\n".join(questions).encode()).hexdigest()[:16],

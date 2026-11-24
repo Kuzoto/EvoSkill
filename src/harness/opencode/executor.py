@@ -219,6 +219,9 @@ def _ensure_server(options: dict[str, Any]) -> str:
 
     port = _find_free_port()
     env = dict(os.environ)
+    # The SkillTree tool runs inside this server; with SKILLTREE_QUERY=context it reads
+    # the session's conversation back through the server's own HTTP API.
+    env["SKILLTREE_OPENCODE_URL"] = f"http://127.0.0.1:{port}"
     # opencode registers its `websearch`/`codesearch` tools only for the opencode provider
     # or when this flag is set, so this env var is the only reason they exist for arc /
     # vllm-local models. They are backed by Exa's free MCP tier, which rate-limits hard
