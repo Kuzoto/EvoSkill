@@ -300,16 +300,25 @@ class SelfImprovingLoop:
 
             _log("", f"  Testing {len(test_samples)} samples from categories: {', '.join(sampled_cats)}...")
 
-            # Run all samples concurrently
-            traces = await asyncio.gather(*[
-                self.agents.base.run(question) for question, _, _ in test_samples
-            ])
-            self._iter_cost += sum(t.total_cost_usd for t in traces)
+            # Run all samples concurrently. A sample whose every attempt fails (e.g. the
+            # 1800s query timeout three times) used to raise out of gather() and kill the
+            # whole loop; it now counts as a failed sample with no trace instead.
+            async def _run_sample(question: str):
+                try:
+                    return await self.agents.base.run(question)
+                except Exception as e:  # noqa: BLE001
+                    _log("", f"  [WARN] sample gave no trace ({type(e).__name__}: {e}); scored as failed: {question[:60]}...")
+                    return None
+
+            traces = await asyncio.gather(*[_run_sample(question) for question, _, _ in test_samples])
+            self._iter_cost += sum(t.total_cost_usd for t in traces if t is not None)
 
             # Extract tool/skill usage from test sample traces
             sample_tools: set[str] = set()
             sample_skills: list[str] = []
             for t in traces:
+                if t is None:
+                    continue
                 usage = extract_tool_usage(t)
                 sample_tools.update(usage["tools_used"])
                 sample_skills.extend(usage["skills_invoked"])
@@ -319,24 +328,31 @@ class SelfImprovingLoop:
             # Collect failures
             failures: list[tuple[AgentTrace, str, str, str]] = []  # (trace, agent_answer, ground_truth, category)
             for trace, (question, answer, category) in zip(traces, test_samples):
-                agent_answer = (
-                    trace.output.final_answer if trace.output and trace.output.final_answer else "[PARSE FAILED]"
-                )
-                avg_score = self.scorer(
-                    question,
-                    agent_answer.strip().lower(),
-                    answer.strip().lower(),
-                )
+                if trace is None:
+                    agent_answer, avg_score = "[NO TRACE]", 0.0
+                else:
+                    agent_answer = (
+                        trace.output.final_answer if trace.output and trace.output.final_answer else "[PARSE FAILED]"
+                    )
+                    avg_score = self.scorer(
+                        question,
+                        agent_answer.strip().lower(),
+                        answer.strip().lower(),
+                    )
                 status = "[OK]" if avg_score >= 0.8 else "[FAIL]"
                 if self.on_event is None:
                     _log("", f"    {status} [{category}] {question[:40]}...")
                 self._emit("sample", question=question, category=category, score=avg_score, passed=avg_score >= 0.8)
-                if avg_score < 0.8:
+                if avg_score < 0.8 and trace is not None:
+                    # A sample with no trace has nothing for the proposer to analyse.
                     failures.append((trace, agent_answer, answer, category))
 
             # Always propose if any failures exist
             if len(failures) == 0:
-                _log("", f"  -> All samples passed, no proposal needed")
+                if any(t is None for t in traces):
+                    _log("", f"  -> No failure with a trace to analyse, no proposal this iteration")
+                else:
+                    _log("", f"  -> All samples passed, no proposal needed")
                 continue
 
             _log("", f"  -> {len(failures)} failure(s), proposing improvement...")
@@ -348,7 +364,13 @@ class SelfImprovingLoop:
             )
 
             # Run proposer with all failures (use actual iteration number with offset)
-            mutation_result = await self._mutate_with_fallback(parent, failures, actual_iteration)
+            try:
+                mutation_result = await self._mutate_with_fallback(parent, failures, actual_iteration)
+            except Exception as e:  # noqa: BLE001
+                # e.g. the proposer/generator query timing out on every retry: count the
+                # iteration as no improvement rather than ending the whole loop.
+                _log("", f"  [WARN] Proposal step failed ({type(e).__name__}: {e}); skipping this iteration")
+                mutation_result = None
 
             if mutation_result is None:
                 no_improvement_count += 1
